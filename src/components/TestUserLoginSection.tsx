@@ -10,14 +10,25 @@ const TEST_USER = {
   name: "Test Agent",
 } as const;
 
+// Whether this is a non-production deployment where the one-click test-reviewer
+// login should appear. The Viktor-Spaces preview build doesn't reliably inject
+// VITE_IS_PREVIEW, so we also detect the preview at runtime: Viktor-Spaces
+// preview deployments are served from a `preview-`-prefixed host, and localhost
+// covers local dev. Production (no `preview-` prefix) returns false, and the
+// test user only exists in the dev Convex DB regardless — so this is safe.
+function isPreviewDeployment(): boolean {
+  if (import.meta.env.VITE_IS_PREVIEW === "true") return true;
+  if (typeof window === "undefined") return false;
+  const h = window.location.hostname;
+  return h.startsWith("preview-") || h === "localhost" || h === "127.0.0.1";
+}
+
 export function TestUserLoginSection() {
   const { signIn } = useAuthActions();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const isPreview = import.meta.env.VITE_IS_PREVIEW === "true";
-
-  if (!isPreview) {
+  if (!isPreviewDeployment()) {
     return null;
   }
 
