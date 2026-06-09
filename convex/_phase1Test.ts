@@ -3,6 +3,8 @@ import type { Doc } from "./_generated/dataModel";
 import { assertSessionInTenant, scopedBySession, TenancyError } from "./tenancy";
 import { computeRollup } from "./rollup";
 
+declare const process: { env: Record<string, string | undefined> };
+
 // ---------------------------------------------------------------------------
 // Phase 1 verification: tenant + session isolation / IDOR.
 // One self-cleaning mutation: seed two tenants, probe cross-tenant access,
@@ -23,6 +25,12 @@ async function expectThrow(fn: () => Promise<unknown>): Promise<boolean> {
 export const runIdorAudit = mutation({
   args: {},
   handler: async (ctx) => {
+    // Hard prod guard: this dev-only fixture refuses to run on a production
+    // deployment (preview/dev sets VIKTOR_SPACES_IS_PREVIEW="true"). Belt-and-
+    // suspenders even though it's slated for removal before go-live.
+    if (process.env.VIKTOR_SPACES_IS_PREVIEW !== "true") {
+      throw new Error("runIdorAudit is a dev-only fixture and is disabled on production.");
+    }
     const report: { check: string; pass: boolean; detail: string }[] = [];
     const now = Date.now();
 

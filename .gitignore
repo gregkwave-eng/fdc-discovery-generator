@@ -10,7 +10,6 @@ dist/
 .env.*.local
 
 # Convex generated files
-convex/_generated/
 
 # IDE
 .vscode/
