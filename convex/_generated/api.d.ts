@@ -10,6 +10,7 @@
 
 import type * as ViktorSpacesEmail from "../ViktorSpacesEmail.js";
 import type * as _phase1Test from "../_phase1Test.js";
+import type * as _reviewTest from "../_reviewTest.js";
 import type * as _transitionsTest from "../_transitionsTest.js";
 import type * as archetypes from "../archetypes.js";
 import type * as auth from "../auth.js";
@@ -18,6 +19,7 @@ import type * as http from "../http.js";
 import type * as llm from "../llm.js";
 import type * as magiclink from "../magiclink.js";
 import type * as owner from "../owner.js";
+import type * as review from "../review.js";
 import type * as rollup from "../rollup.js";
 import type * as scenarioGen from "../scenarioGen.js";
 import type * as seedTestUser from "../seedTestUser.js";
@@ -37,6 +39,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   ViktorSpacesEmail: typeof ViktorSpacesEmail;
   _phase1Test: typeof _phase1Test;
+  _reviewTest: typeof _reviewTest;
   _transitionsTest: typeof _transitionsTest;
   archetypes: typeof archetypes;
   auth: typeof auth;
@@ -45,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   llm: typeof llm;
   magiclink: typeof magiclink;
   owner: typeof owner;
+  review: typeof review;
   rollup: typeof rollup;
   scenarioGen: typeof scenarioGen;
   seedTestUser: typeof seedTestUser;

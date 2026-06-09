@@ -1,6 +1,6 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
-import { LayoutDashboard, LogOut, Moon, Settings, Sun } from "lucide-react";
+import { LayoutDashboard, LogOut, Moon, Settings, ShieldCheck, Sun } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useTheme } from "@/contexts/ThemeContext";
 import { APP_NAME } from "@/lib/constants";
@@ -28,6 +28,7 @@ import {
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/review", label: "Discovery Review", icon: ShieldCheck },
 ];
 
 function NavLink({

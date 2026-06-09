@@ -11,6 +11,7 @@ import {
   LandingPage,
   LoginPage,
   RespondPage,
+  ReviewPage,
   SettingsPage,
   SignupPage,
 } from "./pages";
@@ -35,6 +36,7 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/review" element={<ReviewPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
           </Route>

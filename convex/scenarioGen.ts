@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { action, internalMutation, internalQuery, query } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { assertSessionInTenant } from "./tenancy";
+import { recordTransition } from "./transitions";
 import {
   type ClientContext,
   type SelectedArchetype,
@@ -55,7 +56,14 @@ export const markSessionGenerated = internalMutation({
   args: { clientId: v.id("clients"), sessionId: v.id("sessions") },
   handler: async (ctx, args) => {
     await assertSessionInTenant(ctx, args.clientId, args.sessionId);
-    await ctx.db.patch(args.sessionId, { status: "generated" });
+    // Audited transition draft->generated (or generated->generated on regen).
+    await recordTransition(ctx, {
+      sessionId: args.sessionId,
+      to: "generated",
+      action: "scenario_gen",
+      actor: "system",
+      auditNoop: true,
+    });
   },
 });
 
