@@ -15,6 +15,7 @@ import type * as auth from "../auth.js";
 import type * as constants from "../constants.js";
 import type * as http from "../http.js";
 import type * as llm from "../llm.js";
+import type * as magiclink from "../magiclink.js";
 import type * as rollup from "../rollup.js";
 import type * as scenarioGen from "../scenarioGen.js";
 import type * as seedTestUser from "../seedTestUser.js";
@@ -38,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   constants: typeof constants;
   http: typeof http;
   llm: typeof llm;
+  magiclink: typeof magiclink;
   rollup: typeof rollup;
   scenarioGen: typeof scenarioGen;
   seedTestUser: typeof seedTestUser;

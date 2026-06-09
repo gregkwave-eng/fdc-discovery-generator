@@ -67,9 +67,15 @@ const schema = defineSchema({
     status: sessionStatus,
     s4Ready: v.optional(v.boolean()), // Gate B runtime flag, set when >=70% substantive
     substantiveFraction: v.optional(v.number()),
-    // Phase 3 will add magicLinkTokenHash / expiry; kept out of Phase 1.
+    // Phase 3 owner magic-link auth (stateless HMAC). The token itself is the
+    // bearer credential; we store only a SHA-256 hash of it for single-use /
+    // revocation binding, never the raw token.
+    magicLinkTokenHash: v.optional(v.string()),
+    magicLinkExpiresAt: v.optional(v.number()),
     createdAt: v.number(),
-  }).index("by_client", ["clientId"]),
+  })
+    .index("by_client", ["clientId"])
+    .index("by_magic_hash", ["magicLinkTokenHash"]),
 
   // --- Scenarios (vignettes within a session) ------------------------------
   scenarios: defineTable({
