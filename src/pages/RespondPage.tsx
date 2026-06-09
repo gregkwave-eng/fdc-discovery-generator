@@ -121,6 +121,62 @@ function DoneState({ data }: { data: OwnerLoad }) {
   );
 }
 
+function PreviewConsent({
+  data,
+  onBegin,
+  busy,
+}: {
+  data: OwnerLoad;
+  onBegin: () => void;
+  busy: boolean;
+}) {
+  const total = data.progress.total;
+  return (
+    <CenterCard>
+      <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[#CBA65A]/15 text-xl text-[#CBA65A]">
+        ◆
+      </div>
+      <h1 className="mb-3 font-serif text-2xl text-[#F4F1EA]">
+        A few moments on how{data.client?.name ? ` ${data.client.name}` : " your business"} really runs
+      </h1>
+      <p className="text-sm leading-relaxed text-[#9CA0A8]">
+        Your FDC team has prepared {total} short, true-to-life situations. There are no right
+        answers — we just want to hear how <span className="text-[#C7CAD1]">you</span> handle each
+        one, in your own words. You can type or talk, and stop any time.
+      </p>
+      <ul className="mx-auto mt-5 max-w-xs space-y-2 text-left text-[13px] text-[#9CA0A8]">
+        <li className="flex gap-2"><span className="text-[#CBA65A]">·</span> ~5–10 minutes, at your pace</li>
+        <li className="flex gap-2"><span className="text-[#CBA65A]">·</span> Private to your engagement team</li>
+        <li className="flex gap-2"><span className="text-[#CBA65A]">·</span> Nothing starts until you tap Begin</li>
+      </ul>
+      <button
+        disabled={busy}
+        onClick={onBegin}
+        className="mt-7 inline-flex items-center gap-2 rounded-xl bg-[#CBA65A] px-6 py-2.5 text-[14px] font-semibold text-[#15171C] transition-all hover:bg-[#E3C77E] disabled:cursor-wait disabled:opacity-60"
+      >
+        {busy ? "Starting…" : "Begin"}
+        {!busy && <span aria-hidden>→</span>}
+      </button>
+    </CenterCard>
+  );
+}
+
+function NotReadyState({ name }: { name?: string }) {
+  return (
+    <CenterCard>
+      <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[#CBA65A]/10 text-2xl text-[#CBA65A]">
+        ⋯
+      </div>
+      <h1 className="mb-3 font-serif text-2xl text-[#F4F1EA]">Almost ready</h1>
+      <p className="text-sm leading-relaxed text-[#9CA0A8]">
+        Your FDC team is still putting the finishing touches on
+        {name ? ` ${name}'s` : " your"} discovery. This link will come alive as soon as they
+        finish — please check back shortly.
+      </p>
+    </CenterCard>
+  );
+}
+
 // --- the vignette card ------------------------------------------------------
 
 function VignetteCard({
@@ -405,6 +461,47 @@ export function RespondPage() {
           <Brand />
         </header>
         <LoadingState />
+      </Shell>
+    );
+  }
+
+  const handleBegin = async () => {
+    if (!token) return;
+    setBusy(true);
+    try {
+      await backend.begin(token);
+      const d = await backend.load(token);
+      setData(d);
+      setCursor(0);
+    } catch {
+      setError("We couldn't start this session — your link may have expired. Please request a fresh one.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const status = data.session.status;
+  // Gate 2: an invited-but-not-begun session shows the preview/consent screen.
+  // The owner physically cannot answer until they tap Begin (also enforced
+  // server-side in ownerRespond's OPEN_FOR_RESPONSES check).
+  if (status === "fdc_approved") {
+    return (
+      <Shell>
+        <header className="mb-10">
+          <Brand />
+        </header>
+        <PreviewConsent data={data} onBegin={handleBegin} busy={busy} />
+      </Shell>
+    );
+  }
+  // Not yet approved/invited — nothing for the owner to do yet.
+  if (status === "draft" || status === "generated") {
+    return (
+      <Shell>
+        <header className="mb-10">
+          <Brand />
+        </header>
+        <NotReadyState name={data.client?.name} />
       </Shell>
     );
   }

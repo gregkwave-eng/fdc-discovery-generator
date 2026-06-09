@@ -57,6 +57,8 @@ export interface OwnerBackend {
   /** SECRET/HMAC path — swap target for the Vercel-fn migration. */
   verifyToken(token: string): Promise<TokenScope>;
   load(token: string): Promise<OwnerLoad>;
+  /** Gate 2: owner consents on the preview screen and Begins the session. */
+  begin(token: string): Promise<{ status: string }>;
   respond(input: {
     token: string;
     scenarioId: string;
@@ -74,6 +76,7 @@ export function createOwnerBackend(client: ConvexReactClient): OwnerBackend {
   return {
     verifyToken: (token) => client.action(api.magiclink.verifyMagicLink, { token }),
     load: (token) => client.action(api.owner.ownerLoad, { token }),
+    begin: (token) => client.action(api.owner.ownerBegin, { token }),
     respond: (input) => client.action(api.owner.ownerRespond, input),
     // Phase 4b: audio bytes → Convex action (stores in file storage + Deepgram
     // STT) → transcript. Later this single method repoints to a Vercel fn; the

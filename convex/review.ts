@@ -282,3 +282,61 @@ export const _emailForUser = internalQuery({
     return String((user as { email?: string } | null)?.email ?? "fdc:unknown");
   },
 });
+
+// --- owner invite (Decision #5: a SECOND explicit click) --------------------
+// FDC approval (Gate 1) does NOT auto-send the owner link. Inviting the owner is
+// a distinct, deliberate action a reviewer takes after approval. Decision #6:
+// owner emails are HELD behind this OFF flag — inviteOwner issues the magic
+// link and returns it for manual sending; it never emails until Greg flips this.
+const OWNER_EMAIL_ENABLED = false;
+
+export async function _invite(ctx: any, sessionId: Id<"sessions">, email: string) {
+  const session = await ctx.db.get(sessionId);
+  if (!session) throw new Error("Session not found.");
+  if (session.status !== "fdc_approved") {
+    throw new Error("Owner can only be invited after Gate 1 approval (fdc_approved).");
+  }
+  await ctx.db.patch(sessionId, { invitedAt: Date.now() });
+  await auditEvent(ctx, sessionId, "owner_invite", `fdc:${email}`, "owner link issued (email held OFF)");
+  return { clientId: session.clientId };
+}
+
+export const _markInvited = internalMutation({
+  args: { sessionId: v.id("sessions"), email: v.string() },
+  handler: async (ctx, { sessionId, email }) => {
+    return await _invite(ctx, sessionId, email);
+  },
+});
+
+export const _sessionStatus = internalQuery({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, { sessionId }) => {
+    const s = await ctx.db.get(sessionId);
+    return s ? { status: s.status } : null;
+  },
+});
+
+export const inviteOwner = action({
+  args: { sessionId: v.id("sessions") },
+  handler: async (
+    ctx,
+    { sessionId },
+  ): Promise<{ path: string; token: string; expiresAt: number; emailed: boolean }> => {
+    const userId = await getAuthUserId(ctx as never);
+    if (!userId) throw new Error("Not authenticated as an FDC reviewer.");
+    const email = await ctx.runQuery(internal.review._emailForUser, { userId: userId as Id<"users"> });
+    const scope = await ctx.runQuery(internal.review._sessionStatus, { sessionId });
+    if (!scope) throw new Error("Session not found.");
+    if (scope.status !== "fdc_approved") {
+      throw new Error("Owner can only be invited after Gate 1 approval (fdc_approved).");
+    }
+    // Issue the magic link, then record the invite (gate re-checked in the mutation).
+    const link = await ctx.runAction(api.magiclink.issueMagicLink, { sessionId });
+    await ctx.runMutation(internal.review._markInvited, { sessionId, email });
+    // Email is HELD behind the OFF flag — return the link for manual sending.
+    if (OWNER_EMAIL_ENABLED) {
+      // (future) send via Resend here once Greg flips owner-email on.
+    }
+    return { path: link.path, token: link.token, expiresAt: link.expiresAt, emailed: false };
+  },
+});

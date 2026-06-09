@@ -1,5 +1,5 @@
 import { useAction, useMutation, useQuery } from "convex/react";
-import { CheckCircle2, Loader2, Pencil, RefreshCw, ShieldCheck, X } from "lucide-react";
+import { CheckCircle2, Loader2, Pencil, RefreshCw, Send, ShieldCheck, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -46,8 +46,10 @@ export function ReviewPage() {
   const reject = useMutation(api.review.fdcReject);
   const editScenario = useMutation(api.review.fdcEditScenario);
   const regenerate = useAction(api.review.fdcRegenerate);
+  const inviteOwner = useAction(api.review.inviteOwner);
 
   const [busy, setBusy] = useState(false);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [rejectNote, setRejectNote] = useState("");
   const [editing, setEditing] = useState<{ id: Id<"scenarios">; title: string; body: string } | null>(
     null,
@@ -90,7 +92,10 @@ export function ReviewPage() {
           {queue?.map((q) => (
             <button
               key={q.sessionId}
-              onClick={() => setSelectedId(q.sessionId)}
+              onClick={() => {
+                setSelectedId(q.sessionId);
+                setInviteLink(null);
+              }}
               className={`w-full rounded-lg border p-3 text-left transition hover:border-primary/60 ${
                 selectedId === q.sessionId ? "border-primary bg-primary/5" : "border-border"
               }`}
@@ -226,6 +231,19 @@ export function ReviewPage() {
                           <CheckCircle2 className="mr-1 h-4 w-4" /> Approve
                         </Button>
                       )}
+                      {detail.session.status === "fdc_approved" && (
+                        <Button
+                          disabled={busy}
+                          onClick={() =>
+                            run("Owner link issued (not emailed)", async () => {
+                              const r = await inviteOwner({ sessionId: detail.session.sessionId });
+                              setInviteLink(window.location.origin + r.path);
+                            })
+                          }
+                        >
+                          <Send className="mr-1 h-4 w-4" /> Invite owner
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         disabled={busy}
@@ -260,6 +278,14 @@ export function ReviewPage() {
                         <X className="mr-1 h-4 w-4" /> Reject
                       </Button>
                     </div>
+                    {inviteLink && (
+                      <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 text-xs">
+                        <p className="mb-1 font-medium">
+                          Owner link issued — email is held OFF, send this manually:
+                        </p>
+                        <code className="block break-all text-muted-foreground">{inviteLink}</code>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

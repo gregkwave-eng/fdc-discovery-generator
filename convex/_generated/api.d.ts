@@ -9,6 +9,7 @@
  */
 
 import type * as ViktorSpacesEmail from "../ViktorSpacesEmail.js";
+import type * as _gate2Test from "../_gate2Test.js";
 import type * as _phase1Test from "../_phase1Test.js";
 import type * as _reviewTest from "../_reviewTest.js";
 import type * as _transitionsTest from "../_transitionsTest.js";
@@ -38,6 +39,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   ViktorSpacesEmail: typeof ViktorSpacesEmail;
+  _gate2Test: typeof _gate2Test;
   _phase1Test: typeof _phase1Test;
   _reviewTest: typeof _reviewTest;
   _transitionsTest: typeof _transitionsTest;
