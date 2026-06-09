@@ -11,6 +11,7 @@
 import type * as ViktorSpacesEmail from "../ViktorSpacesEmail.js";
 import type * as _gate2Test from "../_gate2Test.js";
 import type * as _governanceTest from "../_governanceTest.js";
+import type * as _liveAssistedTest from "../_liveAssistedTest.js";
 import type * as _phase1Test from "../_phase1Test.js";
 import type * as _reviewTest from "../_reviewTest.js";
 import type * as _transitionsTest from "../_transitionsTest.js";
@@ -44,6 +45,7 @@ declare const fullApi: ApiFromModules<{
   ViktorSpacesEmail: typeof ViktorSpacesEmail;
   _gate2Test: typeof _gate2Test;
   _governanceTest: typeof _governanceTest;
+  _liveAssistedTest: typeof _liveAssistedTest;
   _phase1Test: typeof _phase1Test;
   _reviewTest: typeof _reviewTest;
   _transitionsTest: typeof _transitionsTest;

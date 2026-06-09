@@ -1,5 +1,5 @@
 import { useAction, useMutation, useQuery } from "convex/react";
-import { CheckCircle2, Loader2, Pencil, RefreshCw, Send, ShieldCheck, X } from "lucide-react";
+import { CheckCircle2, Flag, Headphones, Loader2, Pencil, RefreshCw, Send, ShieldCheck, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +47,8 @@ export function ReviewPage() {
   const editScenario = useMutation(api.review.fdcEditScenario);
   const regenerate = useAction(api.review.fdcRegenerate);
   const inviteOwner = useAction(api.review.inviteOwner);
+  const enterLiveAssisted = useAction(api.review.enterLiveAssisted);
+  const finalizeSession = useAction(api.review.finalizeSession);
 
   const [busy, setBusy] = useState(false);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
@@ -255,6 +257,42 @@ export function ReviewPage() {
                       >
                         <RefreshCw className="mr-1 h-4 w-4" /> Regenerate
                       </Button>
+                      {["owner_approved", "running", "escalated"].includes(
+                        detail.session.status,
+                      ) && (
+                        <Button
+                          variant="outline"
+                          disabled={busy}
+                          onClick={() =>
+                            run("Switched to live-assisted", () =>
+                              enterLiveAssisted({ sessionId: detail.session.sessionId }),
+                            )
+                          }
+                        >
+                          <Headphones className="mr-1 h-4 w-4" /> Run live-assisted
+                        </Button>
+                      )}
+                      {["running", "live_assisted"].includes(detail.session.status) && (
+                        <Button
+                          variant="outline"
+                          disabled={busy}
+                          onClick={() =>
+                            run("Finalize", async () => {
+                              const r = await finalizeSession({
+                                sessionId: detail.session.sessionId,
+                              });
+                              if (r.outcome === "complete")
+                                toast.success(`Complete — ${(r.fraction * 100).toFixed(0)}% substantive (S4-ready)`);
+                              else if (r.outcome === "partial")
+                                toast.warning(`Partial — ${(r.fraction * 100).toFixed(0)}% substantive (flagged for mirror)`);
+                              else
+                                toast.error(`Below floor — ${(r.fraction * 100).toFixed(0)}% substantive. Run live-assisted or re-engage the owner.`);
+                            })
+                          }
+                        >
+                          <Flag className="mr-1 h-4 w-4" /> Finalize
+                        </Button>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       <Input

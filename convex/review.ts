@@ -316,6 +316,104 @@ export const _sessionStatus = internalQuery({
   },
 });
 
+// --- live-assisted entry + completion floor (Decision #3) -------------------
+// Proceed-partial floor at completion:
+//   >= 70% substantive  -> complete (S4-ready)
+//   50%–70%             -> partial (flagged for the mirror)
+//   < 50%               -> below floor: reviewer runs live-assisted or re-engages
+const PROCEED_FULL = 0.7;
+const PROCEED_PARTIAL_FLOOR = 0.5;
+
+async function _sessionFraction(ctx: any, sessionId: Id<"sessions">) {
+  const session = await ctx.db.get(sessionId);
+  if (!session) throw new Error("Session not found.");
+  const scenarios = await ctx.db
+    .query("scenarios").withIndex("by_session", (q: any) => q.eq("sessionId", sessionId)).collect();
+  const responses = await ctx.db
+    .query("responses").withIndex("by_session", (q: any) => q.eq("sessionId", sessionId)).collect();
+  const total = scenarios.length;
+  const substantive = responses.filter((r: Doc<"responses">) => r.substantive).length;
+  return { status: session.status, total, substantive, fraction: total > 0 ? substantive / total : 0 };
+}
+
+export async function enterLiveAssistedCore(ctx: any, sessionId: Id<"sessions">, email: string) {
+  const session = await ctx.db.get(sessionId);
+  if (!session) throw new Error("Session not found.");
+  const wasEscalated = session.status === "escalated";
+  await recordTransition(ctx, {
+    sessionId,
+    to: "live_assisted",
+    action: "enter_live_assisted",
+    actor: `fdc:${email}`,
+    note: "FDC running discovery live-assisted",
+    patch: wasEscalated ? { escalationResolution: "live_assisted" } : undefined,
+  });
+  return { status: "live_assisted" as const };
+}
+
+export const _enterLiveAssistedMut = internalMutation({
+  args: { sessionId: v.id("sessions"), email: v.string() },
+  handler: async (ctx, { sessionId, email }) => enterLiveAssistedCore(ctx, sessionId, email),
+});
+
+export const enterLiveAssisted = action({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, { sessionId }): Promise<{ status: string }> => {
+    const userId = await getAuthUserId(ctx as never);
+    if (!userId) throw new Error("Not authenticated as an FDC reviewer.");
+    const email = await ctx.runQuery(internal.review._emailForUser, { userId: userId as Id<"users"> });
+    return await ctx.runMutation(internal.review._enterLiveAssistedMut, { sessionId, email });
+  },
+});
+
+export async function finalizeCore(
+  ctx: any,
+  sessionId: Id<"sessions">,
+  email: string,
+): Promise<{ outcome: "complete" | "partial" | "below_floor"; fraction: number; recommend?: string }> {
+  const { status, fraction } = await _sessionFraction(ctx, sessionId);
+  if (status !== "running" && status !== "live_assisted") {
+    throw new Error("Only an in-progress (running/live_assisted) session can be finalized.");
+  }
+  if (fraction >= PROCEED_FULL) {
+    await recordTransition(ctx, {
+      sessionId, to: "complete", action: "finalize_complete", actor: `fdc:${email}`,
+      note: `Above floor: ${(fraction * 100).toFixed(0)}% substantive`,
+      patch: { substantiveFraction: fraction, s4Ready: true },
+    });
+    return { outcome: "complete", fraction };
+  }
+  if (fraction >= PROCEED_PARTIAL_FLOOR) {
+    await recordTransition(ctx, {
+      sessionId, to: "partial", action: "finalize_partial", actor: `fdc:${email}`,
+      note: `Partial: ${(fraction * 100).toFixed(0)}% substantive (flagged for mirror)`,
+      patch: { substantiveFraction: fraction, escalationResolution: "partial" },
+    });
+    return { outcome: "partial", fraction };
+  }
+  // Below floor — do NOT force a terminal state. Reviewer decides: run
+  // live-assisted or re-engage the owner.
+  return { outcome: "below_floor", fraction, recommend: "live_assisted_or_re_engage" };
+}
+
+export const _finalizeMut = internalMutation({
+  args: { sessionId: v.id("sessions"), email: v.string() },
+  handler: async (ctx, { sessionId, email }) => finalizeCore(ctx, sessionId, email),
+});
+
+export const finalizeSession = action({
+  args: { sessionId: v.id("sessions") },
+  handler: async (
+    ctx,
+    { sessionId },
+  ): Promise<{ outcome: string; fraction: number; recommend?: string }> => {
+    const userId = await getAuthUserId(ctx as never);
+    if (!userId) throw new Error("Not authenticated as an FDC reviewer.");
+    const email = await ctx.runQuery(internal.review._emailForUser, { userId: userId as Id<"users"> });
+    return await ctx.runMutation(internal.review._finalizeMut, { sessionId, email });
+  },
+});
+
 export const inviteOwner = action({
   args: { sessionId: v.id("sessions") },
   handler: async (

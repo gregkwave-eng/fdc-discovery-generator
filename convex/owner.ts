@@ -116,7 +116,7 @@ export const _ownerInsert = internalMutation({
     // the data-layer enforcement of the Decision #7 two-step gate.
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found.");
-    const OPEN_FOR_RESPONSES = ["owner_approved", "running", "escalated"];
+    const OPEN_FOR_RESPONSES = ["owner_approved", "running", "escalated", "live_assisted"];
     if (!OPEN_FOR_RESPONSES.includes(session.status)) {
       throw new Error("This discovery session isn't open for responses yet.");
     }
@@ -155,9 +155,10 @@ export const _ownerInsert = internalMutation({
     const s4Ready = substantiveFraction >= GATE_B_THRESHOLD;
     const now = Date.now();
 
-    // Any owner answer first moves a freshly-begun (owner_approved) or
-    // re-engaged (escalated) session into `running`; a no-op while already
-    // running. Then Gate B (>=70% substantive) flips it to `complete`.
+    // 1) Any owner answer first moves a freshly-begun (owner_approved) or
+    //    re-engaged (escalated) session into `running`. A `live_assisted`
+    //    session stays live_assisted (FDC is driving) and is finalized by a
+    //    reviewer, not auto-promoted.
     if (session.status === "owner_approved" || session.status === "escalated") {
       await recordTransition(ctx, {
         sessionId: args.sessionId,
@@ -167,6 +168,10 @@ export const _ownerInsert = internalMutation({
         patch: { lastOwnerActivityAt: now },
       });
     }
+    // 2) The session is now `running` or `live_assisted`. Gate B (>=70%
+    //    substantive) completes it from either; otherwise we record activity
+    //    against the same state (same-state no-op still writes the patch).
+    const activeState = session.status === "live_assisted" ? "live_assisted" : "running";
     if (s4Ready) {
       await recordTransition(ctx, {
         sessionId: args.sessionId,
@@ -179,7 +184,7 @@ export const _ownerInsert = internalMutation({
     } else {
       await recordTransition(ctx, {
         sessionId: args.sessionId,
-        to: "running",
+        to: activeState,
         action: "owner_answer",
         actor: "owner",
         patch: { substantiveFraction, s4Ready, lastOwnerActivityAt: now },
