@@ -17,6 +17,7 @@ import { action, internalQuery, internalMutation } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
 import { scopedBySession } from "./tenancy";
+import { recordTransition } from "./transitions";
 import type { Doc, Id } from "./_generated/dataModel";
 
 declare const process: { env: Record<string, string | undefined> };
@@ -110,6 +111,16 @@ export const _ownerInsert = internalMutation({
     const scenario = scenarios.find((s) => s._id === args.scenarioId);
     if (!scenario) throw new Error("Scenario not in session.");
 
+    // Gate: owners may only answer once the session is actually open for
+    // responses (owner has Begun; or re-engaged from an escalation). This is
+    // the data-layer enforcement of the Decision #7 two-step gate.
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) throw new Error("Session not found.");
+    const OPEN_FOR_RESPONSES = ["owner_approved", "running", "escalated"];
+    if (!OPEN_FOR_RESPONSES.includes(session.status)) {
+      throw new Error("This discovery session isn't open for responses yet.");
+    }
+
     const substantive = isSubstantive(`${args.text} ${args.followUpText ?? ""}`);
     const responses = (await scopedBySession(ctx, "responses", args.clientId, args.sessionId)) as Doc<"responses">[];
     const existing = responses.find((r) => r.scenarioId === args.scenarioId);
@@ -142,17 +153,75 @@ export const _ownerInsert = internalMutation({
     const substantiveCount = after.filter((r) => r.substantive).length;
     const substantiveFraction = total > 0 ? substantiveCount / total : 0;
     const s4Ready = substantiveFraction >= GATE_B_THRESHOLD;
-    await ctx.db.patch(args.sessionId, {
-      substantiveFraction,
-      s4Ready,
-      status: s4Ready ? "complete" : "running",
-    });
+    const now = Date.now();
+
+    // Any owner answer first moves a freshly-begun (owner_approved) or
+    // re-engaged (escalated) session into `running`; a no-op while already
+    // running. Then Gate B (>=70% substantive) flips it to `complete`.
+    if (session.status === "owner_approved" || session.status === "escalated") {
+      await recordTransition(ctx, {
+        sessionId: args.sessionId,
+        to: "running",
+        action: "owner_answer",
+        actor: "owner",
+        patch: { lastOwnerActivityAt: now },
+      });
+    }
+    if (s4Ready) {
+      await recordTransition(ctx, {
+        sessionId: args.sessionId,
+        to: "complete",
+        action: "gate_b_complete",
+        actor: "owner",
+        note: `Gate B met: ${substantiveCount}/${total} substantive`,
+        patch: { substantiveFraction, s4Ready, lastOwnerActivityAt: now },
+      });
+    } else {
+      await recordTransition(ctx, {
+        sessionId: args.sessionId,
+        to: "running",
+        action: "owner_answer",
+        actor: "owner",
+        patch: { substantiveFraction, s4Ready, lastOwnerActivityAt: now },
+      });
+    }
 
     return { answered: after.length, total, substantiveCount, substantiveFraction, s4Ready };
   },
 });
 
+// Gate 2 (owner preview -> Begin): owner consents on the preview screen and
+// taps Begin. Advances fdc_approved -> owner_approved. If the session hasn't
+// cleared Gate 1 (FDC approval) the transition is illegal and throws, so the
+// owner physically cannot start an unapproved session. Idempotent.
+export const _ownerBeginMut = internalMutation({
+  args: { clientId: v.id("clients"), sessionId: v.id("sessions") },
+  handler: async (ctx, { clientId, sessionId }): Promise<{ status: string }> => {
+    const session = await ctx.db.get(sessionId);
+    if (!session || session.clientId !== clientId) throw new Error("Session not found.");
+    if (session.status === "owner_approved" || session.status === "running") {
+      return { status: session.status }; // already begun — no-op
+    }
+    await recordTransition(ctx, {
+      sessionId,
+      to: "owner_approved",
+      action: "owner_begin",
+      actor: "owner",
+      patch: { ownerConsentedAt: Date.now(), lastOwnerActivityAt: Date.now() },
+    });
+    return { status: "owner_approved" };
+  },
+});
+
 // --- public token-authenticated actions (the only owner entry points) -------
+
+export const ownerBegin = action({
+  args: { token: v.string() },
+  handler: async (ctx, { token }): Promise<{ status: string }> => {
+    const { sessionId, clientId } = await ctx.runAction(api.magiclink.verifyMagicLink, { token });
+    return await ctx.runMutation(internal.owner._ownerBeginMut, { clientId, sessionId });
+  },
+});
 
 export const ownerLoad = action({
   args: { token: v.string() },

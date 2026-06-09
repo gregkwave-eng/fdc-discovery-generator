@@ -12,6 +12,12 @@ import { v } from "convex/values";
 
 const depthTier = v.union(v.literal("light"), v.literal("standard"), v.literal("deep"));
 
+// Session lifecycle (Decision #7 two-step hard gate + Decision #9 escalation).
+//   draft -> generated -> fdc_approved -> owner_approved -> running -> complete
+// Gate 1 (FDC sign-off on /review) advances generated->fdc_approved.
+// Gate 2 (owner preview->Begin) advances fdc_approved->owner_approved.
+// Decision #9 fallbacks: escalated (flagged to FDC), partial (>=50% substantive,
+// proceed with what we have), live_assisted (FDC runs it on the owner's behalf).
 const sessionStatus = v.union(
   v.literal("draft"),
   v.literal("generated"),
@@ -19,6 +25,8 @@ const sessionStatus = v.union(
   v.literal("owner_approved"),
   v.literal("running"),
   v.literal("complete"),
+  v.literal("partial"),
+  v.literal("live_assisted"),
   v.literal("escalated"),
 );
 
@@ -72,10 +80,24 @@ const schema = defineSchema({
     // revocation binding, never the raw token.
     magicLinkTokenHash: v.optional(v.string()),
     magicLinkExpiresAt: v.optional(v.number()),
+    // --- Governance / lifecycle metadata (Decision #7 + #9) ---------------
+    fdcApprovedBy: v.optional(v.string()), // approver identity (e.g. "greg@frankdataconsultants.com")
+    fdcApprovedAt: v.optional(v.number()),
+    invitedAt: v.optional(v.number()), // owner-link second-click send (Decision #5)
+    ownerConsentedAt: v.optional(v.number()), // owner tapped Begin on the preview (Gate 2)
+    lastOwnerActivityAt: v.optional(v.number()), // drives stall detection
+    remindersSent: v.optional(v.number()),
+    lastReminderAt: v.optional(v.number()),
+    escalationReason: v.optional(v.union(v.literal("stall"), v.literal("off_script"))),
+    escalatedAt: v.optional(v.number()),
+    escalationResolution: v.optional(
+      v.union(v.literal("partial"), v.literal("live_assisted"), v.literal("re_engaged")),
+    ),
     createdAt: v.number(),
   })
     .index("by_client", ["clientId"])
-    .index("by_magic_hash", ["magicLinkTokenHash"]),
+    .index("by_magic_hash", ["magicLinkTokenHash"])
+    .index("by_status", ["status"]),
 
   // --- Scenarios (vignettes within a session) ------------------------------
   scenarios: defineTable({
@@ -126,6 +148,22 @@ const schema = defineSchema({
     s4Treatment,
     status: v.union(v.literal("open"), v.literal("addressed-in-s4")),
     createdAt: v.number(),
+  })
+    .index("by_session", ["sessionId"])
+    .index("by_client", ["clientId"]),
+
+  // --- Session audit trail (every governance transition, append-only) ------
+  // One row per status change: who did what, from->to, when. Powers the
+  // /review audit view and makes the two-step gate provable after the fact.
+  sessionAudit: defineTable({
+    clientId: v.id("clients"),
+    sessionId: v.id("sessions"),
+    fromStatus: v.string(),
+    toStatus: v.string(),
+    action: v.string(), // fdc_approve | fdc_reject | regenerate | invite_sent | owner_begin | owner_answer | gate_b_complete | escalate | proceed_partial | convert_live_assisted | re_engage | reminder_sent
+    actor: v.string(), // "fdc:<email>" | "owner" | "system"
+    note: v.optional(v.string()),
+    at: v.number(),
   })
     .index("by_session", ["sessionId"])
     .index("by_client", ["clientId"]),

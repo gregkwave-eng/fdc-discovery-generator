@@ -10,6 +10,7 @@
 
 import type * as ViktorSpacesEmail from "../ViktorSpacesEmail.js";
 import type * as _phase1Test from "../_phase1Test.js";
+import type * as _transitionsTest from "../_transitionsTest.js";
 import type * as archetypes from "../archetypes.js";
 import type * as auth from "../auth.js";
 import type * as constants from "../constants.js";
@@ -23,6 +24,7 @@ import type * as seedTestUser from "../seedTestUser.js";
 import type * as stage3 from "../stage3.js";
 import type * as tenancy from "../tenancy.js";
 import type * as testAuth from "../testAuth.js";
+import type * as transitions from "../transitions.js";
 import type * as users from "../users.js";
 import type * as viktorTools from "../viktorTools.js";
 
@@ -35,6 +37,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   ViktorSpacesEmail: typeof ViktorSpacesEmail;
   _phase1Test: typeof _phase1Test;
+  _transitionsTest: typeof _transitionsTest;
   archetypes: typeof archetypes;
   auth: typeof auth;
   constants: typeof constants;
@@ -48,6 +51,7 @@ declare const fullApi: ApiFromModules<{
   stage3: typeof stage3;
   tenancy: typeof tenancy;
   testAuth: typeof testAuth;
+  transitions: typeof transitions;
   users: typeof users;
   viktorTools: typeof viktorTools;
 }>;
