@@ -128,12 +128,14 @@ function VignetteCard({
   index,
   total,
   onSubmit,
+  onTranscribe,
   busy,
 }: {
   scenario: OwnerScenario;
   index: number;
   total: number;
-  onSubmit: (text: string, followUp?: string) => Promise<void>;
+  onSubmit: (text: string, followUp?: string, voiceRef?: string) => Promise<void>;
+  onTranscribe: (audio: Blob) => Promise<{ transcript: string; voiceRef: string }>;
   busy: boolean;
 }) {
   const [text, setText] = useState("");
@@ -141,24 +143,101 @@ function VignetteCard({
   const [askFollowUp, setAskFollowUp] = useState(false);
   const taRef = useRef<HTMLTextAreaElement>(null);
 
+  // voice (Phase 4b)
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [voiceRef, setVoiceRef] = useState<string | undefined>(undefined);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const recRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const stopTracks = () => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  };
+
   // reset when the scenario changes
   useEffect(() => {
     setText("");
     setFollowUp("");
     setAskFollowUp(false);
+    setRecording(false);
+    setTranscribing(false);
+    setAudioUrl((u) => {
+      if (u) URL.revokeObjectURL(u);
+      return null;
+    });
+    setVoiceRef(undefined);
+    setVoiceError(null);
+    stopTracks();
     taRef.current?.focus();
   }, [scenario.scenarioId]);
+
+  // cleanup on unmount
+  useEffect(() => () => stopTracks(), []);
+
+  const startRecording = async () => {
+    setVoiceError(null);
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      setVoiceError("Recording isn’t supported in this browser — please type your answer.");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      chunksRef.current = [];
+      const rec = new MediaRecorder(stream);
+      rec.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      rec.onstop = async () => {
+        stopTracks();
+        const blob = new Blob(chunksRef.current, { type: rec.mimeType || "audio/webm" });
+        setAudioUrl((u) => {
+          if (u) URL.revokeObjectURL(u);
+          return URL.createObjectURL(blob);
+        });
+        setTranscribing(true);
+        try {
+          const { transcript, voiceRef: ref } = await onTranscribe(blob);
+          setVoiceRef(ref);
+          if (transcript) {
+            setText((prev) => (prev.trim() ? `${prev.trim()} ${transcript}` : transcript));
+          } else {
+            setVoiceError("We couldn’t make out any words — try again, or type your answer.");
+          }
+        } catch {
+          setVoiceError("Transcription failed — your recording is saved; you can type instead or re-record.");
+        } finally {
+          setTranscribing(false);
+        }
+      };
+      recRef.current = rec;
+      rec.start();
+      setRecording(true);
+    } catch {
+      setVoiceError("Microphone access was blocked — please allow it, or type your answer instead.");
+      stopTracks();
+    }
+  };
+
+  const stopRecording = () => {
+    if (recRef.current && recRef.current.state !== "inactive") recRef.current.stop();
+    setRecording(false);
+  };
 
   const thin = wordCount(text) < SUBSTANTIVE_MIN_WORDS;
 
   const handlePrimary = async () => {
-    if (!text.trim()) return;
+    if (!text.trim() || transcribing || recording) return;
     // One bounded follow-up nudge when the first pass reads thin.
     if (thin && !askFollowUp) {
       setAskFollowUp(true);
       return;
     }
-    await onSubmit(text.trim(), followUp.trim() || undefined);
+    await onSubmit(text.trim(), followUp.trim() || undefined, voiceRef);
   };
 
   return (
@@ -195,6 +274,45 @@ function VignetteCard({
             className="w-full resize-none rounded-xl border border-[#33373F] bg-[#15171C]/80 px-4 py-3 text-[15px] leading-relaxed text-[#F4F1EA] placeholder:text-[#5E626B] focus:border-[#CBA65A]/60 focus:ring-1 focus:ring-[#CBA65A]/40 focus:outline-none"
           />
 
+          {/* Voice (Phase 4b) — talk instead of type; transcript lands above, editable. */}
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            {!recording ? (
+              <button
+                type="button"
+                onClick={startRecording}
+                disabled={transcribing || busy}
+                className="inline-flex items-center gap-2 rounded-lg border border-[#33373F] bg-transparent px-3.5 py-2 text-[13px] font-medium text-[#C7CAD1] transition-colors hover:border-[#CBA65A]/50 hover:text-[#E3C77E] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <span className="h-2 w-2 rounded-full bg-[#CBA65A]" aria-hidden />
+                {transcribing ? "Transcribing…" : audioUrl ? "Re-record" : "Prefer to talk? Record"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={stopRecording}
+                className="inline-flex items-center gap-2 rounded-lg border border-[#CBA65A]/60 bg-[#CBA65A]/10 px-3.5 py-2 text-[13px] font-medium text-[#E3C77E] transition-colors hover:bg-[#CBA65A]/20"
+              >
+                <span className="h-2 w-2 animate-pulse rounded-full bg-[#E0584B]" aria-hidden />
+                Recording… tap to stop
+              </button>
+            )}
+            {audioUrl && !recording && (
+              <audio src={audioUrl} controls className="h-8 max-w-[220px]">
+                <track kind="captions" />
+              </audio>
+            )}
+            <span className="text-[12px] text-[#6E727B]">
+              {transcribing
+                ? "Turning your words into text…"
+                : voiceRef
+                  ? "Transcribed — edit above, then send."
+                  : "We’ll transcribe it; you can edit before sending."}
+            </span>
+          </div>
+          {voiceError && (
+            <p className="mt-2 text-[12.5px] text-[#E0884B]">{voiceError}</p>
+          )}
+
           {askFollowUp && (
             <div className="mt-4 rounded-xl border border-[#CBA65A]/30 bg-[#CBA65A]/[0.06] p-4">
               <p className="text-[13.5px] leading-relaxed text-[#E3C77E]">
@@ -214,7 +332,7 @@ function VignetteCard({
 
         <div className="mt-7 flex items-center justify-between gap-4">
           <span className="text-[12px] text-[#6E727B]">
-            {askFollowUp ? "Add a line or send as-is — your call." : "Voice replies coming soon."}
+            {askFollowUp ? "Add a line or send as-is — your call." : "Type or talk — whichever's easier."}
           </span>
           <button
             disabled={!text.trim() || busy}
@@ -294,16 +412,17 @@ export function RespondPage() {
   const allDone = pending.length === 0;
   const current = pending[Math.min(cursor, pending.length - 1)];
 
-  const handleSubmit = async (text: string, followUp?: string) => {
+  const handleSubmit = async (text: string, followUp?: string, voiceRef?: string) => {
     if (!token || !current) return;
     setBusy(true);
     try {
       await backend.respond({
         token,
         scenarioId: current.scenarioId,
-        modality: "text",
+        modality: voiceRef ? "voice" : "text",
         text,
         followUpText: followUp,
+        voiceRef,
       });
       // reload truth from server (progress + Gate B), then advance
       const d = await backend.load(token);
@@ -337,6 +456,10 @@ export function RespondPage() {
           index={data.progress.answered}
           total={data.progress.total}
           onSubmit={handleSubmit}
+          onTranscribe={(audio) => {
+            if (!token) throw new Error("Missing token");
+            return backend.transcribe({ token, audio });
+          }}
           busy={busy}
         />
       )}

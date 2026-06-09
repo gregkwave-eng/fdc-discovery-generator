@@ -19,6 +19,8 @@ import { v } from "convex/values";
 import { scopedBySession } from "./tenancy";
 import type { Doc, Id } from "./_generated/dataModel";
 
+declare const process: { env: Record<string, string | undefined> };
+
 const SUBSTANTIVE_MIN_WORDS = 8; // Gate B heuristic
 const GATE_B_THRESHOLD = 0.7; // session S4-ready when >=70% scenarios substantive
 
@@ -157,6 +159,52 @@ export const ownerLoad = action({
   handler: async (ctx, { token }): Promise<OwnerLoadResult> => {
     const { sessionId, clientId } = await ctx.runAction(api.magiclink.verifyMagicLink, { token });
     return await ctx.runQuery(internal.owner._ownerData, { clientId, sessionId });
+  },
+});
+
+// Voice (Phase 4b): token-verified transcription. Owner records a reply in the
+// browser (MediaRecorder); the bytes are posted here, stored in Convex file
+// storage (voiceRef, kept for audit/replay), and transcribed via Deepgram. The
+// transcript is returned to the client, which then calls `ownerRespond` with
+// modality:"voice" + the transcript + voiceRef. Deepgram key is read from the
+// Convex env server-side (never exposed to the browser).
+export const ownerTranscribe = action({
+  args: {
+    token: v.string(),
+    audio: v.bytes(),
+    mimeType: v.optional(v.string()),
+  },
+  handler: async (ctx, { token, audio, mimeType }): Promise<{ transcript: string; voiceRef: string }> => {
+    // Gate on the signed token before doing any work or storing anything.
+    await ctx.runAction(api.magiclink.verifyMagicLink, { token });
+
+    const apiKey = process.env.DEEPGRAM_API_KEY;
+    if (!apiKey) throw new Error("Transcription unavailable: DEEPGRAM_API_KEY not configured on this deployment.");
+    if (!audio || audio.byteLength === 0) throw new Error("No audio captured — please record again.");
+
+    const contentType = mimeType && mimeType.length > 0 ? mimeType : "audio/webm";
+
+    // Persist the raw audio first so we always have the source even if STT fails.
+    const voiceRef = await ctx.storage.store(new Blob([audio], { type: contentType }));
+
+    const resp = await fetch(
+      "https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&punctuate=true",
+      {
+        method: "POST",
+        headers: { Authorization: `Token ${apiKey}`, "Content-Type": contentType },
+        body: audio,
+      },
+    );
+    if (!resp.ok) {
+      const detail = await resp.text().catch(() => "");
+      throw new Error(`Deepgram error ${resp.status}: ${detail.slice(0, 200)}`);
+    }
+    const data = (await resp.json()) as {
+      results?: { channels?: Array<{ alternatives?: Array<{ transcript?: string }> }> };
+    };
+    const transcript = data.results?.channels?.[0]?.alternatives?.[0]?.transcript?.trim() ?? "";
+
+    return { transcript, voiceRef };
   },
 });
 

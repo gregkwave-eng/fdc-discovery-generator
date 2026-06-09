@@ -66,7 +66,7 @@ export interface OwnerBackend {
     voiceRef?: string;
   }): Promise<OwnerRespondResult>;
   /** SECRET path (Deepgram) — swap target for the Vercel-fn migration. */
-  transcribe(input: { token: string; audio: Blob }): Promise<{ transcript: string }>;
+  transcribe(input: { token: string; audio: Blob }): Promise<{ transcript: string; voiceRef: string }>;
 }
 
 /** Default implementation: Convex actions. The only place these refs are used. */
@@ -75,10 +75,16 @@ export function createOwnerBackend(client: ConvexReactClient): OwnerBackend {
     verifyToken: (token) => client.action(api.magiclink.verifyMagicLink, { token }),
     load: (token) => client.action(api.owner.ownerLoad, { token }),
     respond: (input) => client.action(api.owner.ownerRespond, input),
-    // Phase 4b: implemented when voice capture lands (Deepgram via Convex action
-    // now; later a Vercel fn). Interface is fixed so the UI never changes.
-    transcribe: async () => {
-      throw new Error("transcribe() not yet implemented (Phase 4b voice).");
+    // Phase 4b: audio bytes → Convex action (stores in file storage + Deepgram
+    // STT) → transcript. Later this single method repoints to a Vercel fn; the
+    // UI never changes. Deepgram key stays server-side.
+    transcribe: async ({ token, audio }) => {
+      const buf = await audio.arrayBuffer();
+      return client.action(api.owner.ownerTranscribe, {
+        token,
+        audio: buf,
+        mimeType: audio.type || "audio/webm",
+      });
     },
   };
 }
