@@ -10,6 +10,7 @@ import {
   DashboardPage,
   LandingPage,
   LoginPage,
+  RespondPage,
   SettingsPage,
   SignupPage,
 } from "./pages";
@@ -20,6 +21,9 @@ function App() {
       <ThemeProvider defaultTheme="system" switchable>
         <Toaster />
         <Routes>
+          {/* Owner reaction surface — PUBLIC, token-gated, standalone (no app chrome). */}
+          <Route path="/respond" element={<RespondPage />} />
+
           <Route element={<PublicLayout />}>
             <Route path="/" element={<LandingPage />} />
             <Route element={<PublicOnlyRoute />}>
