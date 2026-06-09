@@ -93,6 +93,7 @@ const schema = defineSchema({
     escalationResolution: v.optional(
       v.union(v.literal("partial"), v.literal("live_assisted"), v.literal("re_engaged")),
     ),
+    fdcAlertedAt: v.optional(v.number()), // Slack-to-FDC escalation delivered (Decision #6)
     createdAt: v.number(),
   })
     .index("by_client", ["clientId"])

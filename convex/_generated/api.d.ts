@@ -10,12 +10,15 @@
 
 import type * as ViktorSpacesEmail from "../ViktorSpacesEmail.js";
 import type * as _gate2Test from "../_gate2Test.js";
+import type * as _governanceTest from "../_governanceTest.js";
 import type * as _phase1Test from "../_phase1Test.js";
 import type * as _reviewTest from "../_reviewTest.js";
 import type * as _transitionsTest from "../_transitionsTest.js";
 import type * as archetypes from "../archetypes.js";
 import type * as auth from "../auth.js";
 import type * as constants from "../constants.js";
+import type * as crons from "../crons.js";
+import type * as governance from "../governance.js";
 import type * as http from "../http.js";
 import type * as llm from "../llm.js";
 import type * as magiclink from "../magiclink.js";
@@ -40,12 +43,15 @@ import type {
 declare const fullApi: ApiFromModules<{
   ViktorSpacesEmail: typeof ViktorSpacesEmail;
   _gate2Test: typeof _gate2Test;
+  _governanceTest: typeof _governanceTest;
   _phase1Test: typeof _phase1Test;
   _reviewTest: typeof _reviewTest;
   _transitionsTest: typeof _transitionsTest;
   archetypes: typeof archetypes;
   auth: typeof auth;
   constants: typeof constants;
+  crons: typeof crons;
+  governance: typeof governance;
   http: typeof http;
   llm: typeof llm;
   magiclink: typeof magiclink;
