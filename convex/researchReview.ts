@@ -125,6 +125,7 @@ export const getResearchBrief = query({
     const client = await ctx.db.get(b.clientId);
     return {
       briefId: b._id,
+      clientId: b.clientId,
       client: client ? { name: client.name, businessType: client.businessType } : null,
       producer: b.producer,
       title: b.title,

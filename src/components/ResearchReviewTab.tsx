@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { ResearchImportPanel } from "@/components/ResearchImportPanel";
+import { GroundingPanel } from "@/components/GroundingPanel";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
@@ -100,6 +101,7 @@ export function ResearchReviewTab() {
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         )}
         {selectedId && detail && (
+          <div className="space-y-6">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between gap-3">
@@ -197,6 +199,8 @@ export function ResearchReviewTab() {
               )}
             </CardContent>
           </Card>
+          <GroundingPanel clientId={detail.clientId} />
+          </div>
         )}
       </div>
       </div>

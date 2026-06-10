@@ -10,8 +10,8 @@ import {
   selectArchetypes,
 } from "./archetypes";
 import { anthropicMessage, extractJson, GEN_MODEL } from "./llm";
-import { RESEARCH_GROUNDING_ENABLED, buildResearchGroundingBlock } from "./constants";
-import { loadApprovedBrief } from "./research";
+import { buildResearchGroundingBlock } from "./constants";
+import { resolveGrounding } from "./research";
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -42,13 +42,14 @@ export const getGenerationContext = internalQuery({
     const client = await ctx.db.get(args.clientId);
     const session = await ctx.db.get(args.sessionId);
     if (!client || !session) throw new Error("client or session not found");
-    // §5 flag-gated research grounding: only when the master flag is ON *and* a
-    // Gate-1-approved brief exists. Default OFF => empty => prompt is unchanged
-    // (fully backward-compatible with pre-R-phase behavior).
+    // §5 R3 scoped grounding: grounded ONLY when master ON *and* this client's
+    // per-client toggle is ON *and* a Gate-1-approved brief exists (fail-closed,
+    // see research.groundingDecision). Default OFF => empty => prompt unchanged
+    // (fully backward-compatible). Flipping one client never affects others.
     let researchGrounding = "";
-    if (RESEARCH_GROUNDING_ENABLED) {
-      const brief = await loadApprovedBrief(ctx, args.clientId);
-      if (brief) researchGrounding = buildResearchGroundingBlock(brief);
+    const g = await resolveGrounding(ctx, args.clientId, args.sessionId);
+    if (g.enabled && g.brief) {
+      researchGrounding = buildResearchGroundingBlock(g.brief);
     }
     return {
       name: client.name,
@@ -79,7 +80,7 @@ export const markSessionGenerated = internalMutation({
 });
 
 // --- Prompt construction ----------------------------------------------------
-function buildSystemPrompt(): string {
+export function buildSystemPrompt(): string {
   return [
     "You are FDC's Stage 3 Discovery scenario writer. You craft short, concrete, realistic",
     "scenario vignettes that a small-business OWNER reacts to, so we can surface the",
@@ -113,7 +114,7 @@ function buildSystemPrompt(): string {
   ].join("\n");
 }
 
-function buildUserPrompt(
+export function buildUserPrompt(
   cc: ClientContext,
   selected: SelectedArchetype[],
   transcriptExcerpt: string,

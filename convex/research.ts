@@ -12,7 +12,7 @@ import { v } from "convex/values";
 import { mutation, internalQuery, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getProducer } from "./researchProducers";
-import { RESEARCH_SCOPE, buildResearchGroundingBlock } from "./constants";
+import { RESEARCH_SCOPE, RESEARCH_GROUNDING_ENABLED, buildResearchGroundingBlock } from "./constants";
 
 // --- import (manual / pure-producer path) -----------------------------------
 export const importResearchBrief = mutation({
@@ -133,5 +133,74 @@ export const getGroundingBlock = internalQuery({
     const brief = await loadApprovedBrief(ctx, args.clientId);
     if (!brief) return "";
     return buildResearchGroundingBlock(brief);
+  },
+});
+
+// --- §5 R3: scoped grounding decision ---------------------------------------
+export type GroundingReason =
+  | "master_off"
+  | "client_off"
+  | "no_approved_brief"
+  | "grounded";
+
+// PURE decision function — the whole 3-layer gate in one place, exhaustively
+// testable with no DB/LLM/constant dependency. Fail-closed: every layer must be
+// true. `master` = RESEARCH_GROUNDING_ENABLED, `clientEnabled` = the per-client
+// toggle, `hasApprovedBrief` = a Gate-1-approved brief exists for the client.
+export function groundingDecision(
+  master: boolean,
+  clientEnabled: boolean,
+  hasApprovedBrief: boolean,
+): { enabled: boolean; reason: GroundingReason } {
+  if (!master) return { enabled: false, reason: "master_off" };
+  if (!clientEnabled) return { enabled: false, reason: "client_off" };
+  if (!hasApprovedBrief) return { enabled: false, reason: "no_approved_brief" };
+  return { enabled: true, reason: "grounded" };
+}
+
+// Resolver: feeds live values into the pure decision. Session-aware signature so
+// a per-session override can layer in later without a refactor (R3 ships
+// per-client only). Returns the decision + the approved brief (if any) so a
+// single call drives both gating and the grounding block.
+export async function resolveGrounding(
+  ctx: { db: any },
+  clientId: Id<"clients">,
+  _sessionId?: Id<"sessions">,
+): Promise<{
+  enabled: boolean;
+  reason: GroundingReason;
+  master: boolean;
+  clientEnabled: boolean;
+  hasApprovedBrief: boolean;
+  brief: Awaited<ReturnType<typeof loadApprovedBrief>>;
+}> {
+  const client = await ctx.db.get(clientId);
+  const clientEnabled = client?.groundingEnabled === true;
+  const brief = await loadApprovedBrief(ctx, clientId);
+  const hasApprovedBrief = brief !== null;
+  const master = RESEARCH_GROUNDING_ENABLED;
+  const d = groundingDecision(master, clientEnabled, hasApprovedBrief);
+  return { ...d, master, clientEnabled, hasApprovedBrief, brief };
+}
+
+// Query: grounding status for a client — for the /review Grounding panel.
+export const getClientGroundingState = query({
+  args: { clientId: v.id("clients") },
+  handler: async (ctx, args) => {
+    const client = await ctx.db.get(args.clientId);
+    if (!client) throw new Error("Client not found.");
+    const g = await resolveGrounding(ctx, args.clientId);
+    return {
+      clientId: args.clientId,
+      clientName: client.name,
+      master: g.master,
+      clientEnabled: g.clientEnabled,
+      hasApprovedBrief: g.hasApprovedBrief,
+      effective: g.enabled,
+      reason: g.reason,
+      approvedBriefTitle: g.brief?.title ?? null,
+      groundingEnabledBy: client.groundingEnabledBy ?? null,
+      groundingEnabledAt: client.groundingEnabledAt ?? null,
+    };
   },
 });

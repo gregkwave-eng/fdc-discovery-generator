@@ -88,6 +88,13 @@ const schema = defineSchema({
     hypothesisBriefRef: v.optional(v.string()),
     securityTier: v.union(v.literal("medium"), v.literal("hipaa")), // hipaa gate-blocked Build 1
     status: v.union(v.literal("active"), v.literal("archived")),
+    // §5 R3: per-client grounding enablement. Layered UNDER the global master
+    // off-switch (RESEARCH_GROUNDING_ENABLED). Default OFF (undefined === off) so
+    // flipping it for a demo client never affects any other client's generation.
+    // Greg-only flip (RESEARCH_APPROVER_EMAIL); audited with by/at.
+    groundingEnabled: v.optional(v.boolean()),
+    groundingEnabledBy: v.optional(v.string()),
+    groundingEnabledAt: v.optional(v.number()),
     createdAt: v.number(),
   }).index("by_status", ["status"]),
 
