@@ -247,7 +247,11 @@ export function ReviewPage() {
                           onClick={() =>
                             run("Owner link issued (not emailed)", async () => {
                               const r = await inviteOwner({ sessionId: detail.session.sessionId });
-                              setInviteLink(window.location.origin + r.path);
+                              // Use the server-built absolute URL (explicit
+                              // custom-domain host), NOT window.location.origin —
+                              // otherwise the link would carry whatever platform
+                              // host the reviewer happens to be on.
+                              setInviteLink(r.url);
                             })
                           }
                         >

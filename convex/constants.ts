@@ -1,5 +1,11 @@
 export const APP_NAME = "Litmus";
 
+// Client-facing base URL. Owner magic links MUST be assembled from this explicit
+// host (never from a request origin / window.location), so a prospect's link is
+// always on the custom domain and never a platform host (*.vercel.app /
+// *.viktor.space). Single source of truth for the client-facing host.
+export const APP_BASE_URL = "https://litmus.frankdataconsultants.com";
+
 // ---------------------------------------------------------------------------
 // §5 Research enrichment flags (R-phase). Module constants (same provable-OFF
 // pattern as review.ts OWNER_EMAIL_ENABLED) — flipping is a one-line change +

@@ -18,6 +18,7 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { resolveSecret } from "./systemConfig";
+import { APP_BASE_URL } from "./constants";
 
 const TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -109,7 +110,10 @@ export const _getByMagicHash = internalQuery({
 /** Issue a magic link for a session. Returns the bearer token + relative path. */
 export const issueMagicLink = action({
   args: { sessionId: v.id("sessions") },
-  handler: async (ctx, { sessionId }): Promise<{ token: string; path: string; expiresAt: number }> => {
+  handler: async (
+    ctx,
+    { sessionId },
+  ): Promise<{ token: string; path: string; url: string; expiresAt: number }> => {
     const expiresAt = Date.now() + TTL_MS;
     const payload = `${sessionId}.${expiresAt}`;
     const secret = await getHmacSecret(ctx);
@@ -117,7 +121,10 @@ export const issueMagicLink = action({
     const token = `${toB64Url(new TextEncoder().encode(payload))}.${sig}`;
     const tokenHash = await sha256Hex(token);
     await ctx.runMutation(internal.magiclink._setMagicLink, { sessionId, tokenHash, expiresAt });
-    return { token, path: `/respond?token=${encodeURIComponent(token)}`, expiresAt };
+    const path = `/respond?token=${encodeURIComponent(token)}`;
+    // Absolute URL is built from the explicit APP_BASE_URL host, NOT a request
+    // origin — guarantees the link a prospect clicks is on the custom domain.
+    return { token, path, url: `${APP_BASE_URL}${path}`, expiresAt };
   },
 });
 

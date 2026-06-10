@@ -419,7 +419,7 @@ export const inviteOwner = action({
   handler: async (
     ctx,
     { sessionId },
-  ): Promise<{ path: string; token: string; expiresAt: number; emailed: boolean }> => {
+  ): Promise<{ path: string; url: string; token: string; expiresAt: number; emailed: boolean }> => {
     const userId = await getAuthUserId(ctx as never);
     if (!userId) throw new Error("Not authenticated as an FDC reviewer.");
     const email = await ctx.runQuery(internal.review._emailForUser, { userId: userId as Id<"users"> });
@@ -435,6 +435,6 @@ export const inviteOwner = action({
     if (OWNER_EMAIL_ENABLED) {
       // (future) send via Resend here once Greg flips owner-email on.
     }
-    return { path: link.path, token: link.token, expiresAt: link.expiresAt, emailed: false };
+    return { path: link.path, url: link.url, token: link.token, expiresAt: link.expiresAt, emailed: false };
   },
 });
