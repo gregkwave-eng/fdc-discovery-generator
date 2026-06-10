@@ -23,6 +23,8 @@ import { internalQuery, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { RESEARCH_APPROVER_EMAIL } from "./constants";
+import { _approveBrief } from "./researchReview";
+import { _setClientGrounding } from "./researchGrounding";
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -184,9 +186,41 @@ async function requireApproverEmail(ctx: {
  * guarded by knowledge of the stored HMAC_SECRET. Exists because the dev
  * cleanup is preview-gated; used to purge throwaway wiring-proof data on prod.
  */
+// HMAC-guarded admin path mirroring the auth-gated approve + grounding toggle,
+// for ops / prod-proof runs where no Convex-Auth reviewer session exists in the
+// caller (e.g. server-to-server provisioning checks). Reuses the SAME core
+// helpers as the real reviewer mutations so it exercises identical machinery.
+export const adminGroundingSetup = mutation({
+  args: {
+    adminToken: v.string(),
+    briefId: v.id("researchBriefs"),
+    clientId: v.id("clients"),
+    enabled: v.boolean(),
+  },
+  handler: async (ctx, { adminToken, briefId, clientId, enabled }) => {
+    const stored =
+      (
+        await ctx.db
+          .query("systemConfig")
+          .withIndex("by_key", (q) => q.eq("key", "HMAC_SECRET"))
+          .first()
+      )?.value ?? null;
+    if (!stored || !timingSafeEqual(adminToken, stored)) {
+      throw new Error("Unauthorized: adminToken does not match the owner HMAC secret.");
+    }
+    const approve = await _approveBrief(ctx, briefId, "admin:grounding-proof");
+    const grounding = await _setClientGrounding(ctx, clientId, enabled, "admin:grounding-proof");
+    return { approve, grounding };
+  },
+});
+
 export const adminDeleteClientCascade = mutation({
   args: { adminToken: v.string(), clientId: v.id("clients") },
-  returns: v.object({ deletedSessions: v.number(), deletedScenarios: v.number() }),
+  returns: v.object({
+    deletedSessions: v.number(),
+    deletedScenarios: v.number(),
+    deletedBriefs: v.number(),
+  }),
   handler: async (ctx, { adminToken, clientId }) => {
     const stored =
       (
@@ -216,8 +250,17 @@ export const adminDeleteClientCascade = mutation({
       }
       await ctx.db.delete(s._id);
     }
+    let deletedBriefs = 0;
+    const briefs = await ctx.db
+      .query("researchBriefs")
+      .filter((q) => q.eq(q.field("clientId"), clientId))
+      .collect();
+    for (const b of briefs) {
+      await ctx.db.delete(b._id);
+      deletedBriefs++;
+    }
     await ctx.db.delete(clientId);
-    return { deletedSessions: sessions.length, deletedScenarios };
+    return { deletedSessions: sessions.length, deletedScenarios, deletedBriefs };
   },
 });
 

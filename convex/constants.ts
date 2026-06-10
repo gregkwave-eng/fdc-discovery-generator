@@ -1,4 +1,4 @@
-export const APP_NAME = "FDC Discovery Generator";
+export const APP_NAME = "Litmus";
 
 // ---------------------------------------------------------------------------
 // §5 Research enrichment flags (R-phase). Module constants (same provable-OFF

@@ -32,10 +32,10 @@ function Brand() {
   return (
     <div className="flex items-center gap-2.5">
       <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#CBA65A] font-serif text-sm font-bold text-[#15171C]">
-        F
+        L
       </div>
       <span className="text-[13px] font-medium tracking-[0.18em] text-[#9CA0A8] uppercase">
-        Frank Data Consultants
+        Litmus
       </span>
     </div>
   );

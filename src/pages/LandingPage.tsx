@@ -24,20 +24,20 @@ export function LandingPage() {
         <div className="max-w-5xl mx-auto text-center space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border bg-background text-xs font-medium">
             <Star className="size-3 fill-chart-4 text-chart-4" />
-            Badge Text Goes Here
+            by Frank Data Consultants
           </div>
 
           <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.1]">
-            This is the
+            Litmus
             <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-foreground via-foreground/80 to-foreground/60">
-              Main Headline
+              Discovery, grounded in research
             </span>
           </h1>
 
           <p className="text-base md:text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed">
-            This is the subheadline that explains what the product does and why
-            it matters. Keep it concise and compelling.
+            Litmus turns a business's own world into short, true-to-life
+            scenarios — surfacing how owners and operators really think.
           </p>
 
           {!isAuthenticated && !isLoading && (
