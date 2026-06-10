@@ -17,18 +17,11 @@ import { action, internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
-
-declare const process: { env: Record<string, string | undefined> };
+import { resolveSecret } from "./systemConfig";
 
 const TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 // --- low-level crypto helpers (Web Crypto, action runtime) -----------------
-
-function getSecret(): string {
-  const s = process.env.HMAC_SECRET;
-  if (!s) throw new Error("HMAC_SECRET is not configured in the Convex env.");
-  return s;
-}
 
 function toB64Url(bytes: Uint8Array): string {
   let bin = "";
@@ -48,17 +41,26 @@ function toHex(buf: ArrayBuffer): string {
     .join("");
 }
 
-async function hmacHex(payload: string): Promise<string> {
+async function hmacHex(secret: string, payload: string): Promise<string> {
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey(
     "raw",
-    enc.encode(getSecret()),
+    enc.encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"],
   );
   const sig = await crypto.subtle.sign("HMAC", key, enc.encode(payload));
   return toHex(sig);
+}
+
+// Resolve HMAC_SECRET from env (dev) or the systemConfig store (prod seed).
+async function getHmacSecret(ctx: {
+  runQuery: (ref: any, args: any) => Promise<any>;
+}): Promise<string> {
+  const s = await resolveSecret(ctx, "HMAC_SECRET");
+  if (!s) throw new Error("HMAC_SECRET not configured (neither Convex env nor systemConfig).");
+  return s;
 }
 
 async function sha256Hex(input: string): Promise<string> {
@@ -110,7 +112,8 @@ export const issueMagicLink = action({
   handler: async (ctx, { sessionId }): Promise<{ token: string; path: string; expiresAt: number }> => {
     const expiresAt = Date.now() + TTL_MS;
     const payload = `${sessionId}.${expiresAt}`;
-    const sig = await hmacHex(payload);
+    const secret = await getHmacSecret(ctx);
+    const sig = await hmacHex(secret, payload);
     const token = `${toB64Url(new TextEncoder().encode(payload))}.${sig}`;
     const tokenHash = await sha256Hex(token);
     await ctx.runMutation(internal.magiclink._setMagicLink, { sessionId, tokenHash, expiresAt });
@@ -139,7 +142,8 @@ export const verifyMagicLink = action({
     } catch {
       throw new Error("Malformed token payload.");
     }
-    const expectedSig = await hmacHex(payload);
+    const secret = await getHmacSecret(ctx);
+    const expectedSig = await hmacHex(secret, payload);
     if (!timingSafeEqual(sig, expectedSig)) throw new Error("Invalid token signature.");
 
     const sep = payload.indexOf(".");

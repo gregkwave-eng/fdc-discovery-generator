@@ -176,7 +176,7 @@ export const generateScenarios = action({
     const tier = base.depthTier as "light" | "standard" | "deep";
     const selected = selectArchetypes(cc, tier);
 
-    const result = await anthropicMessage({
+    const result = await anthropicMessage(ctx, {
       system: buildSystemPrompt(),
       user: buildUserPrompt(cc, selected, args.transcriptExcerpt ?? "", base.researchGrounding ?? ""),
       maxTokens: 4096,

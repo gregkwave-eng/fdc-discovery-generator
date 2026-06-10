@@ -26,11 +26,11 @@ Coast Guard mechanic who founded the yard in 2009.`;
 
 export const runDeepResearchSmoke = action({
   args: {},
-  handler: async () => {
+  handler: async (ctx) => {
     if (process.env.VIKTOR_SPACES_IS_PREVIEW !== "true") {
       throw new Error("runDeepResearchSmoke is a dev-only fixture and is disabled on production.");
     }
-    const { extraction } = await extractBriefFromDoc(SAMPLE_DOC);
+    const { extraction } = await extractBriefFromDoc(ctx, SAMPLE_DOC);
     const brief = getProducer("claude-deep-research").normalize(JSON.stringify(extraction));
     const verified = brief.findings.filter((f) => f.kind === "verified");
     const badVerified = verified.filter((f) => f.sources.length === 0);

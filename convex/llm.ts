@@ -2,7 +2,7 @@
 // Convex deployment env (ANTHROPIC_API_KEY) — NOT Viktor internal infra — per
 // the Stage 3 architecture. No key is ever read from source or the front-end.
 
-declare const process: { env: Record<string, string | undefined> };
+import { resolveSecret } from "./systemConfig";
 
 // Current model ids (verified 200). Generation favours quality -> Sonnet.
 export const GEN_MODEL = "claude-sonnet-4-5";
@@ -13,17 +13,21 @@ export interface AnthropicResult {
   usage: { input_tokens?: number; output_tokens?: number } | null;
 }
 
-export async function anthropicMessage(opts: {
-  system: string;
-  user: string;
-  model?: string;
-  maxTokens?: number;
-  temperature?: number;
-}): Promise<AnthropicResult> {
-  const key = process.env.ANTHROPIC_API_KEY;
+export async function anthropicMessage(
+  ctx: { runQuery: (ref: any, args: any) => Promise<any> },
+  opts: {
+    system: string;
+    user: string;
+    model?: string;
+    maxTokens?: number;
+    temperature?: number;
+  },
+): Promise<AnthropicResult> {
+  // env first (dev), then the systemConfig DB store (how prod is seeded).
+  const key = await resolveSecret(ctx, "ANTHROPIC_API_KEY");
   if (!key) {
     throw new Error(
-      "ANTHROPIC_API_KEY missing from Convex env — env-wiring not provisioned for this deployment.",
+      "ANTHROPIC_API_KEY not configured (neither Convex env nor systemConfig).",
     );
   }
   const resp = await fetch("https://api.anthropic.com/v1/messages", {

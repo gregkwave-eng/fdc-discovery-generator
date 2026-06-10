@@ -68,10 +68,11 @@ const EXTRACTION_SYSTEM = [
 // Shared extraction: deep-research doc -> structured brief JSON (Claude call).
 // Exported so the dev smoke test exercises the exact same prompt + parse path.
 export async function extractBriefFromDoc(
+  ctx: { runQuery: (ref: any, args: any) => Promise<any> },
   doc: string,
   model?: string,
 ): Promise<{ extraction: unknown; usage: { input_tokens?: number; output_tokens?: number } | null }> {
-  const result = await anthropicMessage({
+  const result = await anthropicMessage(ctx, {
     system: EXTRACTION_SYSTEM,
     user:
       "Extract the structured brief from the deep-research document below.\n\n<document>\n" +
@@ -103,7 +104,7 @@ export const runDeepResearch = action({
       throw new Error("deep-research doc is empty or too short to extract from");
     }
 
-    const { extraction, usage } = await extractBriefFromDoc(doc, args.model);
+    const { extraction, usage } = await extractBriefFromDoc(ctx, doc, args.model);
 
     // Persist through the pure producer + importResearchBrief (lands PENDING).
     const imported: Omit<DeepResearchResult, "model" | "usage"> = await ctx.runMutation(

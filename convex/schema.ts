@@ -219,6 +219,17 @@ const schema = defineSchema({
   })
     .index("by_session", ["sessionId"])
     .index("by_client", ["clientId"]),
+
+  // Runtime secret store — used because third-party app secrets cannot be set
+  // on the PROD Convex deployment env from the sandbox (no prod deploy key).
+  // Readers use `process.env.X ?? systemConfig.get("X")` (see systemConfig.ts).
+  // Values are seeded via an owner-guarded mutation; never exposed to clients.
+  systemConfig: defineTable({
+    key: v.string(),
+    value: v.string(),
+    updatedBy: v.optional(v.string()),
+    updatedAt: v.optional(v.number()),
+  }).index("by_key", ["key"]),
 });
 
 export default schema;

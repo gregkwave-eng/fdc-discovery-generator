@@ -19,6 +19,7 @@ import { v } from "convex/values";
 import { scopedBySession } from "./tenancy";
 import { recordTransition } from "./transitions";
 import type { Doc, Id } from "./_generated/dataModel";
+import { resolveSecret } from "./systemConfig";
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -252,8 +253,8 @@ export const ownerTranscribe = action({
     // Gate on the signed token before doing any work or storing anything.
     await ctx.runAction(api.magiclink.verifyMagicLink, { token });
 
-    const apiKey = process.env.DEEPGRAM_API_KEY;
-    if (!apiKey) throw new Error("Transcription unavailable: DEEPGRAM_API_KEY not configured on this deployment.");
+    const apiKey = await resolveSecret(ctx, "DEEPGRAM_API_KEY");
+    if (!apiKey) throw new Error("Transcription unavailable: DEEPGRAM_API_KEY not configured (neither Convex env nor systemConfig).");
     if (!audio || audio.byteLength === 0) throw new Error("No audio captured — please record again.");
 
     const contentType = mimeType && mimeType.length > 0 ? mimeType : "audio/webm";

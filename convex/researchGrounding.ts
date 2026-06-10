@@ -159,8 +159,8 @@ export const previewGroundingDiff = action({
     const userUngrounded = buildUserPrompt(cc, selected, transcript, "");
     const userGrounded = buildUserPrompt(cc, selected, transcript, groundingBlock);
     const [resU, resG] = await Promise.all([
-      anthropicMessage({ system, user: userUngrounded, maxTokens: 4096, temperature: 0.3 }),
-      anthropicMessage({ system, user: userGrounded, maxTokens: 4096, temperature: 0.3 }),
+      anthropicMessage(ctx, { system, user: userUngrounded, maxTokens: 4096, temperature: 0.3 }),
+      anthropicMessage(ctx, { system, user: userGrounded, maxTokens: 4096, temperature: 0.3 }),
     ]);
 
     const parse = (text: string) => {

@@ -38,6 +38,7 @@ import type * as rollup from "../rollup.js";
 import type * as scenarioGen from "../scenarioGen.js";
 import type * as seedTestUser from "../seedTestUser.js";
 import type * as stage3 from "../stage3.js";
+import type * as systemConfig from "../systemConfig.js";
 import type * as tenancy from "../tenancy.js";
 import type * as testAuth from "../testAuth.js";
 import type * as transitions from "../transitions.js";
@@ -81,6 +82,7 @@ declare const fullApi: ApiFromModules<{
   scenarioGen: typeof scenarioGen;
   seedTestUser: typeof seedTestUser;
   stage3: typeof stage3;
+  systemConfig: typeof systemConfig;
   tenancy: typeof tenancy;
   testAuth: typeof testAuth;
   transitions: typeof transitions;
