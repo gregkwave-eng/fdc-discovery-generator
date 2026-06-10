@@ -10,6 +10,8 @@ import {
   selectArchetypes,
 } from "./archetypes";
 import { anthropicMessage, extractJson, GEN_MODEL } from "./llm";
+import { RESEARCH_GROUNDING_ENABLED, buildResearchGroundingBlock } from "./constants";
+import { loadApprovedBrief } from "./research";
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -40,6 +42,14 @@ export const getGenerationContext = internalQuery({
     const client = await ctx.db.get(args.clientId);
     const session = await ctx.db.get(args.sessionId);
     if (!client || !session) throw new Error("client or session not found");
+    // §5 flag-gated research grounding: only when the master flag is ON *and* a
+    // Gate-1-approved brief exists. Default OFF => empty => prompt is unchanged
+    // (fully backward-compatible with pre-R-phase behavior).
+    let researchGrounding = "";
+    if (RESEARCH_GROUNDING_ENABLED) {
+      const brief = await loadApprovedBrief(ctx, args.clientId);
+      if (brief) researchGrounding = buildResearchGroundingBlock(brief);
+    }
     return {
       name: client.name,
       businessType: client.businessType,
@@ -48,6 +58,7 @@ export const getGenerationContext = internalQuery({
       stackReplaceHard: client.stackReplaceHard,
       depthTier: session.depthTier,
       status: session.status,
+      researchGrounding,
     };
   },
 });
@@ -91,6 +102,10 @@ function buildSystemPrompt(): string {
     "  that invites the owner to reveal HOW they personally handle it — explicitly inviting a",
     "  \"does this ring true, or what's different for you?\" reaction. Never multiple-choice.",
     "- Do not lecture, sell, or reference 'idiosyncrasies'/'the system'. Stay in their world.",
+    "- If a VETTED INDUSTRY RESEARCH block is provided, use it to make probes more",
+    "  industry-relevant and specific. Treat [VERIFIED] items as sourced facts you can lean on,",
+    "  and [INFERENCE] items as hypotheses to PROBE (never assert an inference to the owner as",
+    "  fact). Research sharpens the probe; the owner's reality is still the answer.",
     "- Wildcard slots: deliberately diverge from the listed probe — go somewhere the archetypes",
     "  don't, to catch a novel idiosyncrasy. Still grounded in their business.",
     "- Return STRICT JSON only: an array of objects {slot:number, title:string, body:string}.",
@@ -102,6 +117,7 @@ function buildUserPrompt(
   cc: ClientContext,
   selected: SelectedArchetype[],
   transcriptExcerpt: string,
+  researchGrounding: string,
 ): string {
   const slots = selected
     .map((s, i) => {
@@ -128,6 +144,7 @@ function buildUserPrompt(
     // surface mid-call (well past 6000 chars), so the model was forced to invent
     // grounded-but-off-target scenarios. Confirmed in Phase-5 calibration.
     transcriptExcerpt ? transcriptExcerpt.slice(0, 60000) : "(no transcript provided)",
+    ...(researchGrounding ? ["", researchGrounding] : []),
     "",
     `Write exactly ${selected.length} scenario vignettes, one per slot below, in order:`,
     slots,
@@ -160,7 +177,7 @@ export const generateScenarios = action({
 
     const result = await anthropicMessage({
       system: buildSystemPrompt(),
-      user: buildUserPrompt(cc, selected, args.transcriptExcerpt ?? ""),
+      user: buildUserPrompt(cc, selected, args.transcriptExcerpt ?? "", base.researchGrounding ?? ""),
       maxTokens: 4096,
       temperature: 0.8,
     });

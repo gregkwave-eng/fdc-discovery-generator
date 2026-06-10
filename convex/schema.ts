@@ -51,6 +51,29 @@ const s4Treatment = v.union(
   v.literal("spotlight"),
 );
 
+// --- Research enrichment (§5 R-phase) -------------------------------------
+// A research brief is per-CLIENT industry/owner context produced by a
+// pluggable researchProducer (e.g. a Claude deep-research doc), normalized into
+// findings, then HUMAN-VETTED (Gate-1, Greg sole approver) before it is ever
+// allowed to ground scenario generation. Every finding is tagged verified
+// (sourced from public web) vs inference (reasoned) — that distinction is
+// non-negotiable so the demo never presents inference as fact.
+const researchFindingKind = v.union(v.literal("verified"), v.literal("inference"));
+const researchFinding = v.object({
+  id: v.string(), // stable id within the brief (f1, f2, …)
+  topic: v.string(), // e.g. "pricing norms", "seasonality", "common tooling"
+  claim: v.string(),
+  kind: researchFindingKind,
+  sources: v.array(v.string()), // public-web citations; a "verified" finding MUST carry >=1
+  relevance: v.optional(v.string()), // why it sharpens probe generation
+});
+const researchBriefStatus = v.union(
+  v.literal("pending"), // imported, awaiting Gate-1 vet
+  v.literal("approved"), // Greg-vetted; eligible to ground scenarioGen
+  v.literal("rejected"),
+  v.literal("superseded"), // replaced by a newer approved brief for the same client
+);
+
 const schema = defineSchema({
   ...authTables,
 
@@ -152,6 +175,27 @@ const schema = defineSchema({
   })
     .index("by_session", ["sessionId"])
     .index("by_client", ["clientId"]),
+
+  // --- Research briefs (§5 R-phase; per-client, human-vetted) --------------
+  researchBriefs: defineTable({
+    clientId: v.id("clients"),
+    producer: v.string(), // researchProducer id: "manual" | "claude-deep-research" | …
+    title: v.string(),
+    summary: v.string(),
+    findings: v.array(researchFinding),
+    ownerResearchIncluded: v.boolean(), // §5: owner research IN (business-relevant) — provenance flag
+    scope: v.literal("public-web"), // §5 locked: public-web only, no paid firmographics
+    rawImport: v.optional(v.string()), // original producer payload, kept for provenance
+    status: researchBriefStatus,
+    importedBy: v.string(),
+    importedAt: v.number(),
+    reviewedBy: v.optional(v.string()), // Gate-1 approver (Greg)
+    reviewedAt: v.optional(v.number()),
+    reviewNote: v.optional(v.string()),
+  })
+    .index("by_client", ["clientId"])
+    .index("by_client_status", ["clientId", "status"])
+    .index("by_status", ["status"]),
 
   // --- Session audit trail (every governance transition, append-only) ------
   // One row per status change: who did what, from->to, when. Powers the
