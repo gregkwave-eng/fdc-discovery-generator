@@ -11,6 +11,10 @@
 // *instantiation* of an archetype into prose is delegated to the LLM.
 // ---------------------------------------------------------------------------
 
+// Probe-side category taxonomy. The first 8 map 1:1 onto the idiosyncrasy-ledger
+// tags (schema.ts `ledgerCategory`); the trailing entries are probe-only buckets
+// used purely for selection diversity (a reaction to one of these is still tagged
+// downstream with the closest of the 8 ledger categories).
 export type LedgerCategory =
   | "process-exception"
   | "tool-attachment"
@@ -19,7 +23,11 @@ export type LedgerCategory =
   | "customer-handling"
   | "pricing/commercial"
   | "data-shape"
-  | "trust/control";
+  | "trust/control"
+  | "growth-ambition"
+  | "dependency-failure"
+  | "team-orchestration"
+  | "assistant-control";
 
 export type Severity = "high" | "med" | "low";
 
@@ -193,6 +201,68 @@ export const ARCHETYPES: Archetype[] = [
     severityHint: "high",
     priority: 1,
     seed: "Take one hypothesis from the Hypothesis Brief and design a scenario whose owner reaction will clearly CONFIRM or CONTRADICT it. Do not telegraph the hypothesis; let their behaviour reveal it.",
+  },
+  // --- Phase-5 calibration additions: universal probe dimensions the base ------
+  // library lacked. All "any"/no-requires so they broaden coverage everywhere.
+  {
+    key: "growth-ambition.scale-ceiling",
+    category: "growth-ambition",
+    label: "How big they actually want to get",
+    appliesTo: "any",
+    requires: null,
+    severityHint: "med",
+    priority: 1,
+    seed: "Probe how big this owner actually WANTS to get. Propose an ambitious expansion or scaling-up of their operation and surface the ceiling they'd refuse to cross — the growth they'd turn down, the size at which it stops being worth it, or the cap they'd self-impose to protect what they value or control.",
+  },
+  {
+    key: "pricing/commercial.build-vs-buy",
+    category: "pricing/commercial",
+    label: "The do-it-themselves instinct",
+    appliesTo: "any",
+    requires: null,
+    severityHint: "med",
+    priority: 2,
+    seed: "Probe the owner's instinct to keep things in-house rather than PAY AN OUTSIDE FIRM to build or run it. Surface where they'd rather do the whole thing themselves, any sensitivity to the cost of the engagement itself, and what specifically would make them keep it DIY instead of hiring help.",
+  },
+  {
+    key: "data-shape.entity-collision",
+    category: "data-shape",
+    label: "When two records collide",
+    appliesTo: "any",
+    requires: null,
+    severityHint: "med",
+    priority: 3,
+    seed: "Probe what happens when two DIFFERENT records, customers, jobs, or entities look nearly identical or collide — same name, same date, same address. Surface how they keep near-duplicates distinct today and where a system would wrongly merge or confuse one for another.",
+  },
+  {
+    key: "dependency-failure.third-party-bail",
+    category: "dependency-failure",
+    label: "When a third party bails",
+    appliesTo: "any",
+    requires: null,
+    severityHint: "med",
+    priority: 2,
+    seed: "A third party this owner depends on — a vendor, supplier, subcontractor, carrier, or partner — fails or bails at the last minute (no-show, cancellation, delayed parts, dropped commitment). Probe how they personally scramble to adapt and protect the customer, and what unwritten backup plan kicks in.",
+  },
+  {
+    key: "team-orchestration.daily-marching-orders",
+    category: "team-orchestration",
+    label: "How they set the team's day",
+    appliesTo: "any",
+    requires: null,
+    severityHint: "med",
+    priority: 2,
+    seed: "Probe how this owner sets up their team's day or week — the marching orders, assignments, and priorities they hand out, and when/how they prep them. Surface whether they'd want a system to DRAFT those for their review versus auto-send to staff, and what only they know that shapes each person's assignment.",
+  },
+  {
+    key: "assistant-control.on-demand-augmentation",
+    category: "assistant-control",
+    label: "The assistant they'd query on demand",
+    appliesTo: "any",
+    requires: null,
+    severityHint: "med",
+    priority: 2,
+    seed: "Probe what this owner would want to simply ASK an always-available assistant about their own business — the questions they'd fire off on demand — and where they'd insist on staying in control of the answer or action rather than letting it act on its own.",
   },
 ];
 
