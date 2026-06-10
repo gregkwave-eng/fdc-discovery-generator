@@ -14,6 +14,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ResearchReviewTab } from "@/components/ResearchReviewTab";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
@@ -81,6 +83,12 @@ export function ReviewPage() {
         </div>
       </div>
 
+      <Tabs defaultValue="scenarios" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="scenarios">Scenarios</TabsTrigger>
+          <TabsTrigger value="research">Research Briefs</TabsTrigger>
+        </TabsList>
+        <TabsContent value="scenarios" className="mt-0">
       <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
         {/* Queue */}
         <div className="space-y-3">
@@ -359,6 +367,11 @@ export function ReviewPage() {
           )}
         </div>
       </div>
+        </TabsContent>
+        <TabsContent value="research" className="mt-0">
+          <ResearchReviewTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
