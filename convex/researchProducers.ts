@@ -106,10 +106,74 @@ const manualProducer: ResearchProducer = {
   },
 };
 
+// --- claude-deep-research producer (R1): extraction JSON -> findings ---------
+// Native input is the STRUCTURED extraction emitted by the deep-research action
+// (researchActions.runDeepResearch), which uses Claude to turn a deep-research
+// markdown doc into a finding list. Findings reference citation ids; a top-level
+// `citations` map resolves id -> source URL. This producer resolves those refs
+// into inline sources, then applies the shared normalize rules — so any finding
+// whose citation can't be resolved (or that cites nothing) is DOWNGRADED from
+// "verified" to "inference". The LLM lives in the action (IO); this stays pure.
+//
+// Native shape:
+//   { title, summary, ownerResearchIncluded,
+//     citations: [{ id, url }],
+//     findings: [{ topic, claim, kind, citations: [id…], sources?: [url…], relevance }] }
+const claudeDeepResearchProducer: ResearchProducer = {
+  id: "claude-deep-research",
+  label: "Claude deep research",
+  normalize(raw: string): NormalizedBrief {
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      throw new ResearchProducerError("claude-deep-research producer expects a JSON payload");
+    }
+
+    // citation registry: id -> url (http(s) only)
+    const cites = new Map<string, string>();
+    if (Array.isArray(parsed.citations)) {
+      for (const c of parsed.citations as Array<Record<string, unknown>>) {
+        const id = String(c?.id ?? "").trim();
+        const url = String(c?.url ?? "").trim();
+        if (id && /^https?:\/\//i.test(url)) cites.set(id, url);
+      }
+    }
+
+    const rawFindings = Array.isArray(parsed.findings)
+      ? (parsed.findings as Array<Record<string, unknown>>)
+      : [];
+    const pre: Array<Partial<NormalizedFinding>> = rawFindings.map((f) => {
+      const ids = Array.isArray(f.citations) ? (f.citations as unknown[]).map((x) => String(x).trim()) : [];
+      const resolved = ids.map((id) => cites.get(id)).filter((u): u is string => !!u);
+      const inline = Array.isArray(f.sources) ? (f.sources as unknown[]).map((s) => String(s).trim()) : [];
+      const sources = [...resolved, ...inline].filter((s) => /^https?:\/\//i.test(s));
+      return {
+        topic: f.topic as string | undefined,
+        claim: f.claim as string | undefined,
+        kind: (f.kind === "verified" ? "verified" : "inference") as ResearchFindingKind,
+        sources,
+        relevance: f.relevance as string | undefined,
+      };
+    });
+
+    const { findings } = normalizeFindings(pre);
+    if (findings.length === 0) {
+      throw new ResearchProducerError("brief has no usable findings");
+    }
+    return {
+      title: String(parsed.title ?? "Deep research brief").trim(),
+      summary: String(parsed.summary ?? "").trim(),
+      findings,
+      ownerResearchIncluded: Boolean(parsed.ownerResearchIncluded),
+    };
+  },
+};
+
 // --- registry ---------------------------------------------------------------
 const PRODUCERS: Record<string, ResearchProducer> = {
   [manualProducer.id]: manualProducer,
-  // "claude-deep-research": claudeDeepResearchProducer,  // ← R1
+  [claudeDeepResearchProducer.id]: claudeDeepResearchProducer,
 };
 
 export function getProducer(id: string): ResearchProducer {

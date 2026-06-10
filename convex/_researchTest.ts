@@ -1,5 +1,5 @@
 import { mutation } from "./_generated/server";
-import { getProducer, normalizeFindings } from "./researchProducers";
+import { getProducer, listProducerIds, normalizeFindings } from "./researchProducers";
 import { _approveBrief, _rejectBrief } from "./researchReview";
 import { loadApprovedBrief } from "./research";
 import { buildResearchGroundingBlock, RESEARCH_APPROVER_EMAIL } from "./constants";
@@ -98,6 +98,29 @@ export const runResearchAudit = mutation({
     // --- 7. sanity on the normalize helper directly ---
     const { downgraded } = normalizeFindings([{ claim: "x", kind: "verified", sources: [] }]);
     report.push({ check: "normalizeFindings reports downgrade count", pass: downgraded === 1, detail: `downgraded=${downgraded}` });
+
+    // --- 8. claude-deep-research producer: citation resolution + downgrade (R1) ---
+    report.push({
+      check: "deep-research producer registered in seam",
+      pass: listProducerIds().includes("claude-deep-research"),
+      detail: listProducerIds().join(","),
+    });
+    const dr = getProducer("claude-deep-research");
+    const drBrief = dr.normalize(JSON.stringify({
+      title: "DR", summary: "s", ownerResearchIncluded: true,
+      citations: [{ id: "c1", url: "https://src.example/a" }],
+      findings: [
+        { topic: "a", claim: "cited claim", kind: "verified", citations: ["c1"] },
+        { topic: "b", claim: "uncited claim", kind: "verified", citations: ["cX"] }, // unresolved -> downgrade
+        { topic: "c", claim: "reasoned claim", kind: "inference", citations: [] },
+      ],
+    }));
+    const drVerified = drBrief.findings.filter((f) => f.kind === "verified");
+    report.push({
+      check: "deep-research: citation id resolved to URL; uncited 'verified' downgraded to inference",
+      pass: drVerified.length === 1 && drVerified[0].sources[0] === "https://src.example/a",
+      detail: `verified=${drVerified.length} src=${drVerified[0]?.sources[0] ?? "-"} total=${drBrief.findings.length}`,
+    });
 
     // --- cleanup (self-cleaning) ---
     for (const id of [brief1, brief2, brief3]) await ctx.db.delete(id);
