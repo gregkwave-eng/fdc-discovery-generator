@@ -117,6 +117,17 @@ export const _ownerInsert = internalMutation({
     // the data-layer enforcement of the Decision #7 two-step gate.
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found.");
+    // Already closed (e.g. Gate B met at >=70% substantive before the owner
+    // answered the final scenario, or finalized as partial): accept gracefully
+    // as an idempotent no-op so the owner sees completion, not a scary error.
+    const TERMINAL = ["complete", "partial"];
+    if (TERMINAL.includes(session.status)) {
+      const resp = (await scopedBySession(ctx, "responses", args.clientId, args.sessionId)) as Doc<"responses">[];
+      const total = scenarios.length;
+      const substantiveCount = resp.filter((r) => r.substantive).length;
+      const substantiveFraction = total > 0 ? substantiveCount / total : 0;
+      return { answered: resp.length, total, substantiveCount, substantiveFraction, s4Ready: session.s4Ready ?? false };
+    }
     const OPEN_FOR_RESPONSES = ["owner_approved", "running", "escalated", "live_assisted"];
     if (!OPEN_FOR_RESPONSES.includes(session.status)) {
       throw new Error("This discovery session isn't open for responses yet.");

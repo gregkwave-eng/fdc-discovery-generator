@@ -506,7 +506,12 @@ export function RespondPage() {
     );
   }
 
-  const allDone = pending.length === 0;
+  // Terminal states (Gate B met, or finalized as partial) close the session
+  // for responses — even if a scenario is still unanswered (Gate B can complete
+  // at >=70% substantive before the final one). Show the Done screen rather
+  // than presenting a scenario the server will reject.
+  const terminal = status === "complete" || status === "partial";
+  const allDone = terminal || pending.length === 0;
   const current = pending[Math.min(cursor, pending.length - 1)];
 
   const handleSubmit = async (text: string, followUp?: string, voiceRef?: string) => {
