@@ -1,5 +1,14 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap");
+
+/* FDC brand palette (mirrors frankdataconsultants.com) */
+:root {
+  --fdc-navy: #1A1A2E;
+  --fdc-navy-light: #2A2A42;
+  --fdc-gold: #B8960A;
+  --fdc-gold-light: #D4AF37;
+}
 
 @custom-variant dark (&:is(.dark *));
 
@@ -52,7 +61,7 @@
   --sidebar-width: 16rem;
   --sidebar-width-icon: 3rem;
 
-  --primary: var(--color-slate-900);
+  --primary: #1A1A2E; /* FDC navy */
   --primary-foreground: var(--color-white);
   --sidebar-primary: var(--color-slate-900);
   --sidebar-primary-foreground: var(--color-slate-50);
@@ -87,7 +96,7 @@
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.92 0.005 260);
   --input: oklch(0.92 0.005 260);
-  --ring: oklch(0.3 0.02 260);
+  --ring: #B8960A; /* FDC gold */
   --sidebar: oklch(0.98 0 0);
   --sidebar-foreground: oklch(0.15 0.01 260);
   --sidebar-accent: oklch(0.96 0.005 260);
@@ -146,6 +155,7 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),

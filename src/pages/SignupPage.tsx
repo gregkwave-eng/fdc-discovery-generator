@@ -13,14 +13,18 @@ export function SignupPage() {
 
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center space-y-2">
-          <div className="mx-auto size-12 rounded-xl bg-primary flex items-center justify-center mb-4">
-            <span className="text-primary-foreground font-bold text-lg">M</span>
+          <div
+            className="text-[11px] font-bold uppercase mb-4"
+            style={{ letterSpacing: "2.5px", color: "var(--fdc-gold)" }}
+          >
+            Frank Data Consultants
           </div>
           <h1 className="text-2xl font-bold tracking-tight">
-            Create an account
+            FDC reviewer access
           </h1>
           <p className="text-muted-foreground text-sm">
-            Get started with your free account
+            Restricted to @frankdataconsultants.com — owners don't sign up; they
+            join by private link.
           </p>
         </div>
 

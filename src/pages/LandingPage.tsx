@@ -1,190 +1,163 @@
-import { useConvexAuth } from "convex/react";
-import {
-  ArrowRight,
-  Check,
-  Layers,
-  Shield,
-  Sparkles,
-  Star,
-  Zap,
-} from "lucide-react";
-import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+import { ArrowRight } from "lucide-react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+
+const NAVY = "#1A1A2E";
+const NAVY_LIGHT = "#2A2A42";
+const GOLD = "#B8960A";
+const GOLD_LIGHT = "#D4AF37";
+
+// Extract a magic-link token whether the owner pastes a full invite URL or just
+// the raw token. Returns null if nothing usable is found.
+function extractToken(raw: string): string | null {
+  const v = raw.trim();
+  if (!v) return null;
+  try {
+    const u = new URL(v);
+    const t = u.searchParams.get("token");
+    if (t) return t;
+  } catch {
+    // not a URL — fall through
+  }
+  const m = v.match(/token=([^&\s]+)/);
+  if (m) return decodeURIComponent(m[1]);
+  // looks like a bare token (base64url.hex) — accept it
+  if (/^[A-Za-z0-9_-]+\.[A-Za-z0-9]+$/.test(v)) return v;
+  return null;
+}
 
 export function LandingPage() {
-  const { isAuthenticated, isLoading } = useConvexAuth();
+  const navigate = useNavigate();
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const open = () => {
+    const token = extractToken(value);
+    if (!token) {
+      setError("That doesn't look like a valid session link. Paste the full link from your FDC invitation.");
+      return;
+    }
+    navigate(`/respond?token=${encodeURIComponent(token)}`);
+  };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      <section className="relative flex-1 flex flex-col items-center justify-center px-4 py-16 md:py-24">
-        <div className="absolute inset-0 -z-10 overflow-hidden">
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-40" />
-        </div>
-
-        <div className="max-w-5xl mx-auto text-center space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border bg-background text-xs font-medium">
-            <Star className="size-3 fill-chart-4 text-chart-4" />
-            by Frank Data Consultants
-          </div>
-
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.1]">
-            Litmus
-            <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-foreground via-foreground/80 to-foreground/60">
-              Discovery, grounded in research
-            </span>
-          </h1>
-
-          <p className="text-base md:text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed">
-            Litmus turns a business's own world into short, true-to-life
-            scenarios — surfacing how owners and operators really think.
+    <div className="flex-1 flex flex-col">
+      {/* Hero — FDC navy */}
+      <section
+        className="relative flex-1 flex flex-col items-center justify-center px-4 py-20 md:py-28"
+        style={{ background: NAVY }}
+      >
+        <div
+          className="absolute inset-0 -z-0 opacity-60"
+          style={{
+            background: `radial-gradient(ellipse 70% 50% at 50% 0%, ${NAVY_LIGHT} 0%, transparent 70%)`,
+          }}
+        />
+        <div className="relative max-w-2xl mx-auto text-center">
+          <p
+            className="text-[12px] font-semibold uppercase mb-6"
+            style={{ letterSpacing: "2.5px", color: GOLD }}
+          >
+            A Frank Data Consultants engagement
           </p>
 
-          {!isAuthenticated && !isLoading && (
-            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
-              <Button size="lg" className="text-base h-11 px-6" asChild>
-                <Link to="/signup">
-                  Get Started
-                  <ArrowRight className="size-4" />
-                </Link>
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="text-base h-11 px-6"
-                asChild
+          <h1
+            className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight leading-[1.05]"
+            style={{ color: "#fff" }}
+          >
+            Litmus
+          </h1>
+          <p
+            className="mt-5 text-lg md:text-xl leading-relaxed"
+            style={{ color: "rgba(255,255,255,0.78)" }}
+          >
+            A short, guided session that turns your business's own day-to-day
+            situations into true-to-life scenarios — so your FDC team can see how
+            you actually weigh the decisions that matter.
+          </p>
+          <p
+            className="mt-3 text-sm leading-relaxed"
+            style={{ color: "rgba(255,255,255,0.5)" }}
+          >
+            It's part of how we work <em>with</em> you during discovery — not a
+            product, and nothing to sign up for.
+          </p>
+
+          {/* Open your session */}
+          <div
+            className="mt-10 mx-auto max-w-md rounded-2xl p-5 text-left"
+            style={{
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.10)",
+            }}
+          >
+            <label
+              className="block text-sm font-semibold mb-2"
+              style={{ color: "#fff" }}
+            >
+              Open your session
+            </label>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                value={value}
+                onChange={(e) => {
+                  setValue(e.target.value);
+                  setError(null);
+                }}
+                onKeyDown={(e) => e.key === "Enter" && open()}
+                placeholder="Paste your invitation link"
+                className="flex-1 rounded-lg px-3 py-2 text-sm outline-none"
+                style={{
+                  background: "rgba(255,255,255,0.92)",
+                  color: NAVY,
+                }}
+              />
+              <button
+                onClick={open}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
+                style={{ background: GOLD, color: "#fff" }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = GOLD_LIGHT)
+                }
+                onMouseLeave={(e) => (e.currentTarget.style.background = GOLD)}
               >
-                <Link to="/login">Sign In</Link>
-              </Button>
+                Open <ArrowRight className="size-4" />
+              </button>
             </div>
-          )}
-          {isAuthenticated && (
-            <div className="pt-2">
-              <Button size="lg" className="text-base h-11 px-6" asChild>
-                <Link to="/dashboard">
-                  Go to Dashboard
-                  <ArrowRight className="size-4" />
-                </Link>
-              </Button>
-            </div>
-          )}
-
-          <div className="flex items-center justify-center gap-6 pt-4 text-sm text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <Check className="size-4 text-chart-1" />
-              <span>Benefit one</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Check className="size-4 text-chart-1" />
-              <span>Benefit two</span>
-            </div>
-            <div className="hidden sm:flex items-center gap-1.5">
-              <Check className="size-4 text-chart-1" />
-              <span>Benefit three</span>
-            </div>
+            {error && (
+              <p className="mt-2 text-xs" style={{ color: "#F8B4B4" }}>
+                {error}
+              </p>
+            )}
+            <p
+              className="mt-3 text-xs leading-relaxed"
+              style={{ color: "rgba(255,255,255,0.5)" }}
+            >
+              Litmus is invitation-only. You'll have received a private link from
+              your FDC team — open that to begin. No link yet? It comes by
+              invitation through your FDC engagement.
+            </p>
           </div>
         </div>
       </section>
 
-      <section className="py-20 md:py-32 border-t bg-muted/30">
-        <div className="container">
-          <div className="text-center mb-16">
-            <p className="text-sm font-medium text-muted-foreground mb-3 tracking-wide uppercase">
-              Features
-            </p>
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
-              Features Section Title
-            </h2>
-            <p className="text-muted-foreground max-w-xl mx-auto text-lg">
-              A brief description of what makes this product special and why
-              users should care about these features.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
-            <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-background to-muted/50 border p-6 md:p-8 transition-all hover:shadow-lg hover:border-foreground/20">
-              <div className="absolute top-0 right-0 -mt-4 -mr-4 size-24 rounded-full bg-chart-1/10 blur-2xl transition-all group-hover:bg-chart-1/20" />
-              <div className="relative">
-                <div className="inline-flex size-11 items-center justify-center rounded-xl bg-chart-1/10 mb-5">
-                  <Zap className="size-5 text-chart-1" />
-                </div>
-                <h3 className="font-semibold text-lg mb-2">Feature One</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">
-                  Here we describe the first key feature. It solves a specific
-                  problem for users.
-                </p>
-              </div>
-            </div>
-
-            <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-background to-muted/50 border p-6 md:p-8 transition-all hover:shadow-lg hover:border-foreground/20">
-              <div className="absolute top-0 right-0 -mt-4 -mr-4 size-24 rounded-full bg-chart-2/10 blur-2xl transition-all group-hover:bg-chart-2/20" />
-              <div className="relative">
-                <div className="inline-flex size-11 items-center justify-center rounded-xl bg-chart-2/10 mb-5">
-                  <Shield className="size-5 text-chart-2" />
-                </div>
-                <h3 className="font-semibold text-lg mb-2">Feature Two</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">
-                  This is where we explain the second feature. It complements
-                  the first one.
-                </p>
-              </div>
-            </div>
-
-            <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-background to-muted/50 border p-6 md:p-8 transition-all hover:shadow-lg hover:border-foreground/20">
-              <div className="absolute top-0 right-0 -mt-4 -mr-4 size-24 rounded-full bg-chart-3/10 blur-2xl transition-all group-hover:bg-chart-3/20" />
-              <div className="relative">
-                <div className="inline-flex size-11 items-center justify-center rounded-xl bg-chart-3/10 mb-5">
-                  <Sparkles className="size-5 text-chart-3" />
-                </div>
-                <h3 className="font-semibold text-lg mb-2">Feature Three</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">
-                  The third feature rounds out the offering. Together they
-                  create a solution.
-                </p>
-              </div>
-            </div>
-
-            <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-background to-muted/50 border p-6 md:p-8 md:col-span-2 lg:col-span-2 transition-all hover:shadow-lg hover:border-foreground/20">
-              <div className="absolute bottom-0 left-0 -mb-8 -ml-8 size-32 rounded-full bg-chart-4/10 blur-2xl transition-all group-hover:bg-chart-4/20" />
-              <div className="relative flex flex-col md:flex-row md:items-center gap-6">
-                <div className="inline-flex size-14 shrink-0 items-center justify-center rounded-2xl bg-chart-4/10">
-                  <Layers className="size-7 text-chart-4" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-lg mb-2">
-                    Feature Four - A Bigger Highlight
-                  </h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">
-                    This larger card can highlight a key differentiator or main
-                    value proposition. Use this space to elaborate on what makes
-                    your product stand out.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="group relative overflow-hidden rounded-2xl bg-primary text-primary-foreground p-6 md:p-8 transition-all hover:shadow-lg">
-              <div className="relative">
-                <h3 className="font-semibold text-lg mb-2">Ready to start?</h3>
-                <p className="text-primary-foreground/80 text-sm leading-relaxed mb-4">
-                  Join thousands of users already using our platform.
-                </p>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="bg-background text-foreground hover:bg-background/90"
-                  asChild
-                >
-                  <Link to="/signup">
-                    Get Started
-                    <ArrowRight className="size-4" />
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          </div>
+      {/* Minimal FDC footer */}
+      <footer
+        className="px-4 py-8"
+        style={{ background: NAVY, borderTop: "1px solid rgba(255,255,255,0.08)" }}
+      >
+        <div className="max-w-2xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+          <span
+            className="text-[11px] font-bold uppercase"
+            style={{ letterSpacing: "2.5px", color: GOLD }}
+          >
+            Frank Data Consultants
+          </span>
+          <span className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
+            Decision Engineering for high-stakes choices.
+          </span>
         </div>
-      </section>
+      </footer>
     </div>
   );
 }

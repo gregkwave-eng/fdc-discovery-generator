@@ -13,22 +13,25 @@ export function LoginPage() {
 
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center space-y-2">
-          <div className="mx-auto size-12 rounded-xl bg-primary flex items-center justify-center mb-4">
-            <span className="text-primary-foreground font-bold text-lg">M</span>
+          <div
+            className="text-[11px] font-bold uppercase mb-4"
+            style={{ letterSpacing: "2.5px", color: "var(--fdc-gold)" }}
+          >
+            Frank Data Consultants
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
+          <h1 className="text-2xl font-bold tracking-tight">FDC reviewer sign-in</h1>
           <p className="text-muted-foreground text-sm">
-            Sign in to your account to continue
+            Litmus console — restricted to @frankdataconsultants.com accounts
           </p>
         </div>
 
         <TestUserLoginSection />
         <SignIn />
 
-        <p className="text-center text-sm text-muted-foreground">
-          Don't have an account?{" "}
-          <Button variant="link" className="p-0 h-auto font-medium" asChild>
-            <Link to="/signup">Sign up</Link>
+        <p className="text-center text-xs text-muted-foreground">
+          FDC team without an account?{" "}
+          <Button variant="link" className="p-0 h-auto text-xs font-medium" asChild>
+            <Link to="/signup">Request reviewer access</Link>
           </Button>
         </p>
       </div>
