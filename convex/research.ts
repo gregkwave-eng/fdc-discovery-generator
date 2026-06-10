@@ -53,6 +53,20 @@ export const importResearchBrief = mutation({
   },
 });
 
+// --- active clients (for the /review Import control, R2) ---------------------
+export const listClients = query({
+  args: {},
+  handler: async (ctx) => {
+    const clients = await ctx.db
+      .query("clients")
+      .withIndex("by_status", (q) => q.eq("status", "active"))
+      .collect();
+    return clients
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((c) => ({ clientId: c._id, name: c.name, businessType: c.businessType }));
+  },
+});
+
 // --- visibility: list a client's briefs (any status) ------------------------
 export const listClientBriefs = query({
   args: { clientId: v.id("clients") },

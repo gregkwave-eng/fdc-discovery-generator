@@ -13,6 +13,7 @@ import type * as _gate2Test from "../_gate2Test.js";
 import type * as _governanceTest from "../_governanceTest.js";
 import type * as _liveAssistedTest from "../_liveAssistedTest.js";
 import type * as _phase1Test from "../_phase1Test.js";
+import type * as _researchImportTest from "../_researchImportTest.js";
 import type * as _researchSmokeTest from "../_researchSmokeTest.js";
 import type * as _researchTest from "../_researchTest.js";
 import type * as _reviewTest from "../_reviewTest.js";
@@ -53,6 +54,7 @@ declare const fullApi: ApiFromModules<{
   _governanceTest: typeof _governanceTest;
   _liveAssistedTest: typeof _liveAssistedTest;
   _phase1Test: typeof _phase1Test;
+  _researchImportTest: typeof _researchImportTest;
   _researchSmokeTest: typeof _researchSmokeTest;
   _researchTest: typeof _researchTest;
   _reviewTest: typeof _reviewTest;

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { ResearchImportPanel } from "@/components/ResearchImportPanel";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
@@ -50,7 +51,9 @@ export function ResearchReviewTab() {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
+    <div className="space-y-6">
+      <ResearchImportPanel />
+      <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
       {/* Queue */}
       <div className="space-y-3">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -195,6 +198,7 @@ export function ResearchReviewTab() {
             </CardContent>
           </Card>
         )}
+      </div>
       </div>
     </div>
   );
